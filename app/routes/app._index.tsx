@@ -18,6 +18,7 @@ import {
   DataTable,
   Box,
   Divider,
+  Thumbnail,
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import { requireBilling } from "../billing.server";
@@ -169,6 +170,16 @@ export default function Index() {
   return (
     <Page
       title="B2B Payment & Delivery Guard"
+      titleMetadata={
+        <InlineStack gap="200" align="center">
+          <Thumbnail
+            source="/app-icon.png"
+            alt="B2B Payment & Delivery Guard"
+            size="small"
+          />
+          <Badge tone="success">Pro Plan Active</Badge>
+        </InlineStack>
+      }
       subtitle="Conditionally hide, reorder, and restrict checkout payment methods and delivery options"
       primaryAction={{
         content: "New Payment Rule",
