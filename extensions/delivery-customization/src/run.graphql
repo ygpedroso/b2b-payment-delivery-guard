@@ -1,0 +1,53 @@
+query RunInput {
+  cart {
+    cost {
+      subtotalAmount {
+        amount
+        currencyCode
+      }
+      totalAmount {
+        amount
+        currencyCode
+      }
+    }
+    lines {
+      id
+      quantity
+      merchandise {
+        __typename
+        ... on ProductVariant {
+          id
+          weight
+          weightUnit
+          product {
+            id
+            hasTags(tags: ["freight", "heavy", "oversized", "ltl", "pallet", "fragile"]) {
+              hasTag
+              tag
+            }
+          }
+        }
+      }
+    }
+    deliveryGroups {
+      deliveryAddress {
+        countryCode
+        provinceCode
+        zip
+      }
+      deliveryOptions {
+        handle
+        title
+        cost {
+          amount
+          currencyCode
+        }
+      }
+    }
+  }
+  deliveryCustomization {
+    metafield(namespace: "$app:delivery_rules", key: "configuration") {
+      jsonValue
+    }
+  }
+}

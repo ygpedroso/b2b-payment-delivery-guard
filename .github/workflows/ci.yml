@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Lint, Test & Build Wasm
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Run Linter
+        run: npm run lint
+
+      - name: Run Unit Tests
+        run: npm test
+
+      - name: Build Shopify Functions (Wasm)
+        run: npm run build:functions
+
+      - name: Verify compiled Wasm artifacts
+        run: |
+          if [ -f extensions/payment-customization/dist/function.wasm ] && [ -f extensions/delivery-customization/dist/function.wasm ]; then
+            echo "Payment Wasm binary generated successfully ($(stat -c%s extensions/payment-customization/dist/function.wasm) bytes)."
+            echo "Delivery Wasm binary generated successfully ($(stat -c%s extensions/delivery-customization/dist/function.wasm) bytes)."
+          else
+            echo "Error: function.wasm was not found in extensions dist directories"
+            exit 1
+          fi
+
+      - name: Build Remix App
+        run: npm run build

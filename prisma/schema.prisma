@@ -1,0 +1,93 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Session {
+  id                  String    @id
+  shop                String
+  state               String
+  isOnline            Boolean   @default(false)
+  scope               String?
+  expires             DateTime?
+  accessToken         String
+  userId              BigInt?
+  firstName           String?
+  lastName            String?
+  email               String?
+  accountOwner        Boolean   @default(false)
+  locale              String?
+  collaborator        Boolean?  @default(false)
+  emailVerified       Boolean?  @default(false)
+  refreshToken        String?
+  refreshTokenExpires DateTime?
+}
+
+model PaymentRule {
+  id                String   @id @default(cuid())
+  shop              String
+  name              String
+  status            String   @default("ACTIVE") // "ACTIVE" | "DRAFT"
+  
+  // Conditions
+  minSubtotal       Float?
+  maxSubtotal       Float?
+  customerTags      String?  // comma-separated tags e.g. "b2b,wholesale"
+  customerTagsMatch String   @default("ANY") // "ANY" | "ALL"
+  countryCodes      String?  // comma-separated ISO country codes e.g. "US,CA"
+  currencies        String?  // comma-separated currency codes e.g. "USD,EUR"
+  productTags       String?  // comma-separated product tags
+  productIds        String?  // comma-separated product IDs
+
+  // Action
+  paymentMethodName String   // target payment method name / substring match e.g. "Cash on Delivery", "Klarna"
+  actionType        String   @default("HIDE") // "HIDE" | "MOVE_TO_BOTTOM"
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([shop])
+}
+
+model DeliveryRule {
+  id                 String   @id @default(cuid())
+  shop               String
+  name               String
+  status             String   @default("ACTIVE") // "ACTIVE" | "DRAFT"
+  
+  // Conditions
+  minTotalAmount     Float?
+  maxTotalAmount     Float?
+  minTotalWeight     Float?
+  maxTotalWeight     Float?
+  postalCodes        String?  // comma-separated, prefix, or regex pattern
+  postalCodeType     String   @default("PREFIX") // "PREFIX" | "REGEX" | "LIST"
+  countryCodes       String?  // comma-separated ISO codes e.g. "US,CA"
+  provinceCodes      String?  // comma-separated state/province codes e.g. "CA,NY,TX"
+  productTags        String?  // e.g. "freight,heavy"
+
+  // Action
+  deliveryOptionName String   // target delivery option name / substring match e.g. "Express", "Standard"
+  actionType         String   @default("HIDE") // "HIDE" | "MOVE_TO_BOTTOM" | "MOVE_TO_TOP"
+  
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([shop])
+}
+
+model CustomizationSetting {
+  id                      String   @id @default(cuid())
+  shop                    String   @unique
+  paymentCustomizationId  String?
+  deliveryCustomizationId String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+}

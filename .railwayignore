@@ -1,0 +1,3 @@
+# Railway deployment ignore list
+shopify.app.dev.toml
+shopify.app.dev.*.toml

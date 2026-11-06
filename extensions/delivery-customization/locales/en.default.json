@@ -1,0 +1,4 @@
+{
+  "name": "B2B Delivery Customization",
+  "description": "Conditionally hides or reorders delivery options based on cart weight, freight product tags, postal code rules, and B2B contracted rates."
+}

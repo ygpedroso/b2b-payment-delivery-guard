@@ -1,0 +1,55 @@
+query RunInput {
+  cart {
+    cost {
+      subtotalAmount {
+        amount
+        currencyCode
+      }
+      totalAmount {
+        amount
+        currencyCode
+      }
+    }
+    buyerIdentity {
+      customer {
+        id
+        hasTags(tags: ["b2b", "wholesale", "trade", "net-terms", "vip", "tier1", "tier2", "tax-exempt"]) {
+          hasTag
+          tag
+        }
+      }
+    }
+    lines {
+      id
+      quantity
+      merchandise {
+        __typename
+        ... on ProductVariant {
+          id
+          product {
+            id
+            hasTags(tags: ["b2b-only", "freight", "restricted", "wholesale-only"]) {
+              hasTag
+              tag
+            }
+          }
+        }
+      }
+    }
+    deliveryGroups {
+      deliveryAddress {
+        countryCode
+        provinceCode
+      }
+    }
+  }
+  paymentMethods {
+    id
+    name
+  }
+  paymentCustomization {
+    metafield(namespace: "$app:payment_rules", key: "configuration") {
+      jsonValue
+    }
+  }
+}

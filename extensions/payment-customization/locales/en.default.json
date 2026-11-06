@@ -1,0 +1,4 @@
+{
+  "name": "B2B Payment Customization",
+  "description": "Conditionally hides or reorders checkout payment methods based on B2B customer tags, cart subtotal, product tags, and country."
+}

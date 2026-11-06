@@ -1,0 +1,16 @@
+api_version = "2026-07"
+
+[[extensions]]
+name = "B2B Delivery Customization"
+handle = "delivery-customization"
+type = "function"
+description = "Conditionally hides or reorders delivery options based on cart weight, freight product tags, postal code rules, and B2B contracted rates."
+
+  [[extensions.targeting]]
+  target = "purchase.delivery-customization.run"
+  input_query = "src/run.graphql"
+  export = "run"
+
+  [extensions.build]
+  command = ""
+  path = "dist/function.wasm"

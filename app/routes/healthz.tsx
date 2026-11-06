@@ -1,0 +1,9 @@
+export const loader = async () => {
+  return new Response("OK", {
+    status: 200,
+    headers: {
+      "Content-Type": "text/plain",
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+    },
+  });
+};

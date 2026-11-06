@@ -1,0 +1,13 @@
+.cache
+build
+node_modules
+shopify.app.dev.toml
+shopify.app.dev.*.toml
+.git
+.shopify
+.vscode
+*test*
+*Test*
+*spec*
+*Spec*
+dist

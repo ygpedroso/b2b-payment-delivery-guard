@@ -1,0 +1,16 @@
+api_version = "2026-07"
+
+[[extensions]]
+name = "B2B Payment Customization"
+handle = "payment-customization"
+type = "function"
+description = "Conditionally hides or reorders checkout payment methods based on B2B customer tags, cart subtotal, product tags, and country."
+
+  [[extensions.targeting]]
+  target = "purchase.payment-customization.run"
+  input_query = "src/run.graphql"
+  export = "run"
+
+  [extensions.build]
+  command = ""
+  path = "dist/function.wasm"
