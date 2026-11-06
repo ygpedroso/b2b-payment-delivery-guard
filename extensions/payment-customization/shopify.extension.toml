@@ -3,6 +3,7 @@ api_version = "2026-07"
 [[extensions]]
 name = "B2B Payment Customization"
 handle = "payment-customization"
+uid = "4f8a281d-8599-ed4f-dd32-1297c2872b96939fbf00"
 type = "function"
 description = "Conditionally hides or reorders checkout payment methods based on B2B customer tags, cart subtotal, product tags, and country."
 
