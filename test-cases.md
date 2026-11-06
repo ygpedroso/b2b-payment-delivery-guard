@@ -44,9 +44,9 @@ Create or tag test products in **Shopify Admin &rarr; Products**:
 
 | Product Name | Tags | Price | Weight | Purpose |
 | :--- | :--- | :--- | :--- | :--- |
-| **Product A: Heavy Industrial Compressor** | `freight`, `oversized` | $850.00 | 75.0 lbs | Tests freight requirement & heavy item parcel blocking |
-| **Product B: Standard Wholesale Widget** | `wholesale-only` | $50.00 | 2.0 lbs | Tests B2B payment gateway restrictions |
-| **Product C: Retail Coffee Mug** | *(No tags)* | $15.00 | 0.8 lbs | Standard consumer retail checkout |
+| **Product X: Heavy Industrial Compressor** | `freight`, `oversized` | $850.00 | 75.0 lbs | Tests freight requirement & heavy item parcel blocking |
+| **Product Y: Standard Wholesale Widget** | `wholesale-only` | $50.00 | 2.0 lbs | Tests B2B payment gateway restrictions |
+| **Product Z: Retail Coffee Mug** | *(No tags)* | $15.00 | 0.8 lbs | Standard consumer retail checkout |
 
 ### 2.3 Payment Methods Configured
 In **Settings &rarr; Payments**:
@@ -74,7 +74,7 @@ In **Settings &rarr; Shipping and delivery**:
   - Target Payment Method Name: `Cash on Delivery`
   - Action: `Hide Method`
 - **Execution Steps:**
-  1. Add 1 &times; **Heavy Industrial Compressor** ($850.00) to the cart.
+  1. Add 1 &times; **Product X: Heavy Industrial Compressor** ($850.00) to the cart.
   2. Subtotal is $850.00 (greater than $200.00).
   3. Proceed to checkout and continue to the **Payment** step.
 - **Expected Result:**
@@ -89,7 +89,7 @@ In **Settings &rarr; Shipping and delivery**:
 - **App Rule Configuration:** Same as Test Case 1 (`Hide COD over $200`).
 - **Execution Steps:**
   1. Clear the cart.
-  2. Add 2 &times; **Standard Wholesale Widget** ($50.00 each = $100.00 subtotal).
+  2. Add 2 &times; **Product Y: Standard Wholesale Widget** ($50.00 each = $100.00 subtotal).
   3. Subtotal is $100.00 (below $200.00).
   4. Proceed to checkout and continue to the **Payment** step.
 - **Expected Result:**
@@ -161,7 +161,7 @@ In **Settings &rarr; Shipping and delivery**:
   - Action: `Hide Option`
   - *(Optional second rule hiding `Standard`)*
 - **Execution Steps:**
-  1. Add 1 &times; **Heavy Industrial Compressor** (tagged `freight`) to the cart.
+  1. Add 1 &times; **Product X: Heavy Industrial Compressor** (tagged `freight`) to the cart.
   2. Proceed to checkout and enter any standard shipping address.
   3. Navigate to the **Shipping method** step.
 - **Expected Result:**
