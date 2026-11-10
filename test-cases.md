@@ -99,39 +99,44 @@ In **Settings &rarr; Shipping and delivery**:
 ---
 
 ### Test Case 3: Force Wire Transfer / Net Terms for B2B Tagged Customers
-- **Objective:** Restrict Credit Cards and BNPL (Klarna) for wholesale accounts to prevent merchant processing fee overhead.
-- **App Rule Configuration:**
+- **Objective:** Restrict alternative payment methods (like Cash on Delivery / BNPL) or Credit Cards for wholesale accounts to prevent fee overhead or enforce invoice settlement.
+- **Shopify Platform Note:**
+  > [!NOTE]
+  > **Shopify Plus Platform Limitation:** In the US and Canada, Shopify's checkout engine strictly prohibits non-Plus stores (including standard development stores) from hiding credit card gateways. If a function returns a `hide` operation for a credit card on a non-Plus store, Shopify silences the hide operation and still displays the card form. To test hiding credit cards, the test store must be created with **Developer preview: Shopify Plus / B2B** in Shopify Partners.
+  > 
+  > On standard development stores, test this rule using alternative/manual payment methods (such as **Cash on Delivery**, **Klarna**, or **Affirm**) which Shopify allows all plans to customize.
+- **App Rule Configuration (Standard Dev Store - Alternative Methods):**
   - Rule 1:
+    - Name: `Hide COD & BNPL for B2B`
+    - Customer Tags: `b2b, wholesale` (Match ANY)
+    - Target Payment Method Name: `Cash on Delivery, Klarna, Affirm`
+    - Action: `Hide Method`
+- **App Rule Configuration (Shopify Plus Dev Store - Credit Card Hiding):**
+  - Rule 2:
     - Name: `Hide Credit Card for B2B`
     - Customer Tags: `b2b, wholesale` (Match ANY)
-    - Target Payment Method Name: `Credit Card`
-    - Action: `Hide Method`
-  - Rule 2:
-    - Name: `Hide Klarna for B2B`
-    - Customer Tags: `b2b, wholesale` (Match ANY)
-    - Target Payment Method Name: `Klarna`
+    - Target Payment Method Name: `Credit Card, Bogus Gateway, Shopify Payments`
     - Action: `Hide Method`
 - **Execution Steps:**
-  1. Log in as `wholesale@example.com` (tagged with `wholesale`, `b2b`).
+  1. Log in as a customer account tagged `wholesale` or `b2b` (e.g. `wholesale@example.com`). *(Important: Customer must be logged in so `buyerIdentity.customer.hasTags` is evaluated)*.
   2. Add products to the cart and proceed to checkout.
   3. Navigate to the **Payment** step.
 - **Expected Result:**
-  - [ ] **Credit Card** is hidden.
-  - [ ] **Klarna** is hidden.
-  - [ ] **Bank Deposit / Wire Transfer** is visible and available.
+  - [ ] Targeted methods (**Cash on Delivery**, **Klarna / Affirm**, and on Plus stores **Credit Card**) are hidden.
+  - [ ] **Bank Deposit / Wire Transfer** remains visible and selectable.
 - **Status:** [ ] PASS / [ ] FAIL
 
 ---
 
-### Test Case 4: Allow Credit Cards for Untagged Retail Shoppers
+### Test Case 4: Allow Restricted Methods for Untagged Retail Shoppers
 - **Objective:** Ensure retail shoppers are not affected by wholesale payment restrictions.
 - **Execution Steps:**
   1. Log out or open an incognito window as a guest or logged in as `retail@example.com` (no tags).
   2. Add products to the cart and proceed to checkout.
   3. Navigate to the **Payment** step.
 - **Expected Result:**
-  - [ ] **Credit Card** and **Klarna** are visible and selectable.
-- **Status:** [ ] PASS / [ ] FAIL
+  - [ ] **Cash on Delivery**, **Credit Card**, and **Klarna** are visible and selectable.
+- **Status:** [X] PASS / [ ] FAIL
 
 ---
 

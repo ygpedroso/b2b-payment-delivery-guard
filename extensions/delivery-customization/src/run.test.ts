@@ -246,4 +246,32 @@ describe("Delivery Customization Function", () => {
     const result = run(input);
     expect(result.operations).toEqual([]);
   });
+
+  it("supports comma-separated delivery option aliases", () => {
+    const input: RunInput = {
+      ...baseInput,
+      deliveryCustomization: {
+        metafield: {
+          jsonValue: {
+            rules: [
+              {
+                id: "rule-multi-del",
+                name: "Hide Standard and Express",
+                status: "ACTIVE",
+                deliveryOptionName: "Standard, Express",
+                actionType: "HIDE",
+              },
+            ],
+          },
+        },
+      },
+    };
+
+    const result = run(input);
+    expect(result.operations).toHaveLength(2);
+    expect(result.operations).toEqual([
+      { deliveryOptionHide: { deliveryOptionHandle: "shipping-standard-ground" } },
+      { deliveryOptionHide: { deliveryOptionHandle: "shipping-express-air" } },
+    ]);
+  });
 });

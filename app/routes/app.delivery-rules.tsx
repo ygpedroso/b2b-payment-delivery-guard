@@ -21,7 +21,8 @@ import {
   Select,
   Checkbox,
   Divider,
-  DataTable,
+  IndexTable,
+  ButtonGroup,
   Box,
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
@@ -343,7 +344,7 @@ function DeliveryRuleForm({ ruleToEdit, isSubmitting, onSubmit }: DeliveryRuleFo
                   onChange={setDeliveryOptionName}
                   placeholder="e.g. Express, Standard, Freight"
                   autoComplete="off"
-                  helpText="Case-insensitive substring match against delivery rate titles or handles."
+                  helpText="Case-insensitive substring match against delivery rate titles or handles. Supports comma-separated aliases (e.g. Express, Standard Ground)."
                 />
               </div>
               <div style={{ flex: 1 }}>
@@ -415,45 +416,6 @@ export default function DeliveryRules() {
     submit({ intent: "toggle_status", id }, { method: "post" });
   };
 
-  const rows = rules.map((rule) => [
-    <Text key={rule.id} variant="bodyMd" fontWeight="bold" as="span">
-      {rule.name}
-    </Text>,
-    <Badge
-      key={`${rule.id}-status`}
-      tone={rule.status === RuleStatus.ACTIVE ? "success" : "attention"}
-    >
-      {rule.status}
-    </Badge>,
-    <span key={`${rule.id}-conditions`}>
-      {rule.productTags ? `Tags: [${rule.productTags}] ` : ""}
-      {rule.postalCodes ? `Zip (${rule.postalCodeType}): ${rule.postalCodes} ` : ""}
-      {rule.minTotalWeight ? `Weight ≥ ${rule.minTotalWeight} lbs ` : ""}
-      {!rule.productTags && !rule.postalCodes && !rule.minTotalWeight ? "Always" : ""}
-    </span>,
-    <span key={`${rule.id}-target`}>{rule.deliveryOptionName}</span>,
-    <Badge key={`${rule.id}-action`}>{rule.actionType}</Badge>,
-    <InlineStack key={`${rule.id}-ops`} gap="200">
-      <Button
-        size="slim"
-        onClick={() => handleToggle(rule.id)}
-        disabled={isSubmitting}
-      >
-        {rule.status === RuleStatus.ACTIVE ? "Disable" : "Enable"}
-      </Button>
-      <Button size="slim" url={`/app/delivery-rules?edit=${rule.id}`}>
-        Edit
-      </Button>
-      <Button
-        size="slim"
-        tone="critical"
-        onClick={() => handleDelete(rule.id)}
-        disabled={isSubmitting}
-      >
-        Delete
-      </Button>
-    </InlineStack>,
-  ]);
 
   return (
     <Page
@@ -486,8 +448,8 @@ export default function DeliveryRules() {
         ) : (
           <Layout>
             <Layout.Section>
-              <Card>
-                <BlockStack gap="400">
+              <Card padding="0">
+                <Box padding="400">
                   <InlineStack align="space-between">
                     <Text as="h2" variant="headingMd">
                       Active & Draft Rules ({rules.length})
@@ -496,24 +458,128 @@ export default function DeliveryRules() {
                       Create Rule
                     </Button>
                   </InlineStack>
+                </Box>
+                <Divider />
 
-                  {rules.length === 0 ? (
-                    <Box padding="400">
-                      <BlockStack align="center" inlineAlign="center" gap="200">
-                        <Text as="p" tone="subdued">
-                          No delivery rules created yet.
-                        </Text>
-                        <Button url="/app/delivery-rules?new=1">Create Your First Rule</Button>
-                      </BlockStack>
-                    </Box>
-                  ) : (
-                    <DataTable
-                      columnContentTypes={["text", "text", "text", "text", "text", "text"]}
-                      headings={["Name", "Status", "Conditions", "Target Option", "Action", "Actions"]}
-                      rows={rows}
-                    />
-                  )}
-                </BlockStack>
+                {rules.length === 0 ? (
+                  <Box padding="600">
+                    <BlockStack align="center" inlineAlign="center" gap="200">
+                      <Text as="p" tone="subdued">
+                        No delivery rules created yet.
+                      </Text>
+                      <Button url="/app/delivery-rules?new=1">Create Your First Rule</Button>
+                    </BlockStack>
+                  </Box>
+                ) : (
+                  <IndexTable
+                    resourceName={{ singular: "delivery rule", plural: "delivery rules" }}
+                    itemCount={rules.length}
+                    selectable={false}
+                    headings={[
+                      { title: "Rule Name" },
+                      { title: "Status" },
+                      { title: "Target Delivery Options" },
+                      { title: "Conditions" },
+                      { title: "Action" },
+                      { title: "Actions", alignment: "end" },
+                    ]}
+                  >
+                    {rules.map((rule, index) => (
+                      <IndexTable.Row id={rule.id} key={rule.id} position={index}>
+                        <IndexTable.Cell>
+                          <Text variant="bodyMd" fontWeight="bold" as="span">
+                            {rule.name}
+                          </Text>
+                        </IndexTable.Cell>
+                        <IndexTable.Cell>
+                          <Badge tone={rule.status === RuleStatus.ACTIVE ? "success" : "attention"}>
+                            {rule.status}
+                          </Badge>
+                        </IndexTable.Cell>
+                        <IndexTable.Cell>
+                          <div style={{ maxWidth: "280px" }}>
+                            <InlineStack gap="100" wrap>
+                              {rule.deliveryOptionName
+                                .split(",")
+                                .map((t: string) => t.trim())
+                                .filter(Boolean)
+                                .map((alias: string, i: number) => (
+                                  <Badge key={i} tone="info">
+                                    {alias}
+                                  </Badge>
+                                ))}
+                            </InlineStack>
+                          </div>
+                        </IndexTable.Cell>
+                        <IndexTable.Cell>
+                          <div style={{ maxWidth: "260px" }}>
+                            <InlineStack gap="100" wrap>
+                              {rule.productTags && (
+                                <Badge size="small">Product Tags: [{rule.productTags}]</Badge>
+                              )}
+                              {rule.postalCodes && (
+                                <Badge size="small">
+                                  Zip ({rule.postalCodeType}): {rule.postalCodes}
+                                </Badge>
+                              )}
+                              {rule.minTotalWeight && (
+                                <Badge size="small">Weight ≥ {rule.minTotalWeight} lbs</Badge>
+                              )}
+                              {rule.countryCodes && (
+                                <Badge size="small">Country: {rule.countryCodes}</Badge>
+                              )}
+                              {!rule.productTags &&
+                                !rule.postalCodes &&
+                                !rule.minTotalWeight &&
+                                !rule.countryCodes && (
+                                  <Text as="span" tone="subdued">
+                                    Always applies
+                                  </Text>
+                                )}
+                            </InlineStack>
+                          </div>
+                        </IndexTable.Cell>
+                        <IndexTable.Cell>
+                          <Badge
+                            tone={
+                              rule.actionType === ActionType.HIDE
+                                ? "critical"
+                                : rule.actionType === ActionType.MOVE_TO_TOP
+                                ? "success"
+                                : "new"
+                            }
+                          >
+                            {rule.actionType}
+                          </Badge>
+                        </IndexTable.Cell>
+                        <IndexTable.Cell>
+                          <InlineStack align="end">
+                            <ButtonGroup noWrap>
+                              <Button
+                                size="slim"
+                                onClick={() => handleToggle(rule.id)}
+                                disabled={isSubmitting}
+                              >
+                                {rule.status === RuleStatus.ACTIVE ? "Disable" : "Enable"}
+                              </Button>
+                              <Button size="slim" url={`/app/delivery-rules?edit=${rule.id}`}>
+                                Edit
+                              </Button>
+                              <Button
+                                size="slim"
+                                tone="critical"
+                                onClick={() => handleDelete(rule.id)}
+                                disabled={isSubmitting}
+                              >
+                                Delete
+                              </Button>
+                            </ButtonGroup>
+                          </InlineStack>
+                        </IndexTable.Cell>
+                      </IndexTable.Row>
+                    ))}
+                  </IndexTable>
+                )}
               </Card>
             </Layout.Section>
           </Layout>

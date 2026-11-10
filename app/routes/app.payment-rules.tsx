@@ -21,7 +21,8 @@ import {
   Select,
   Checkbox,
   Divider,
-  DataTable,
+  IndexTable,
+  ButtonGroup,
   Box,
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
@@ -321,9 +322,9 @@ function PaymentRuleForm({ ruleToEdit, isSubmitting, onSubmit }: PaymentRuleForm
                   label="Target Payment Method Name"
                   value={paymentMethodName}
                   onChange={setPaymentMethodName}
-                  placeholder="e.g. Cash on Delivery, Klarna, Credit Card"
+                  placeholder="e.g. Cash on Delivery, Klarna, Credit Card, Bogus Gateway"
                   autoComplete="off"
-                  helpText="Case-insensitive match against checkout payment method names."
+                  helpText="Case-insensitive match against checkout payment method names. Supports comma-separated aliases (e.g. Credit Card, Bogus Gateway, Shopify Payments)."
                 />
               </div>
               <div style={{ flex: 1 }}>
@@ -393,45 +394,6 @@ export default function PaymentRules() {
     submit({ intent: "toggle_status", id }, { method: "post" });
   };
 
-  const rows = rules.map((rule) => [
-    <Text key={rule.id} variant="bodyMd" fontWeight="bold" as="span">
-      {rule.name}
-    </Text>,
-    <Badge
-      key={`${rule.id}-status`}
-      tone={rule.status === RuleStatus.ACTIVE ? "success" : "attention"}
-    >
-      {rule.status}
-    </Badge>,
-    <span key={`${rule.id}-conditions`}>
-      {rule.minSubtotal ? `Subtotal ≥ $${rule.minSubtotal} ` : ""}
-      {rule.customerTags ? `Tags: [${rule.customerTags}] ` : ""}
-      {rule.countryCodes ? `Country: ${rule.countryCodes} ` : ""}
-      {!rule.minSubtotal && !rule.customerTags && !rule.countryCodes ? "Always" : ""}
-    </span>,
-    <span key={`${rule.id}-target`}>{rule.paymentMethodName}</span>,
-    <Badge key={`${rule.id}-action`}>{rule.actionType}</Badge>,
-    <InlineStack key={`${rule.id}-ops`} gap="200">
-      <Button
-        size="slim"
-        onClick={() => handleToggle(rule.id)}
-        disabled={isSubmitting}
-      >
-        {rule.status === RuleStatus.ACTIVE ? "Disable" : "Enable"}
-      </Button>
-      <Button size="slim" url={`/app/payment-rules?edit=${rule.id}`}>
-        Edit
-      </Button>
-      <Button
-        size="slim"
-        tone="critical"
-        onClick={() => handleDelete(rule.id)}
-        disabled={isSubmitting}
-      >
-        Delete
-      </Button>
-    </InlineStack>,
-  ]);
 
   return (
     <Page
@@ -464,8 +426,8 @@ export default function PaymentRules() {
         ) : (
           <Layout>
             <Layout.Section>
-              <Card>
-                <BlockStack gap="400">
+              <Card padding="0">
+                <Box padding="400">
                   <InlineStack align="space-between">
                     <Text as="h2" variant="headingMd">
                       Active & Draft Rules ({rules.length})
@@ -474,24 +436,126 @@ export default function PaymentRules() {
                       Create Rule
                     </Button>
                   </InlineStack>
+                </Box>
+                <Divider />
 
-                  {rules.length === 0 ? (
-                    <Box padding="400">
-                      <BlockStack align="center" inlineAlign="center" gap="200">
-                        <Text as="p" tone="subdued">
-                          No payment rules created yet.
-                        </Text>
-                        <Button url="/app/payment-rules?new=1">Create Your First Rule</Button>
-                      </BlockStack>
-                    </Box>
-                  ) : (
-                    <DataTable
-                      columnContentTypes={["text", "text", "text", "text", "text", "text"]}
-                      headings={["Name", "Status", "Conditions", "Target Method", "Action", "Actions"]}
-                      rows={rows}
-                    />
-                  )}
-                </BlockStack>
+                {rules.length === 0 ? (
+                  <Box padding="600">
+                    <BlockStack align="center" inlineAlign="center" gap="200">
+                      <Text as="p" tone="subdued">
+                        No payment rules created yet.
+                      </Text>
+                      <Button url="/app/payment-rules?new=1">Create Your First Rule</Button>
+                    </BlockStack>
+                  </Box>
+                ) : (
+                  <IndexTable
+                    resourceName={{ singular: "payment rule", plural: "payment rules" }}
+                    itemCount={rules.length}
+                    selectable={false}
+                    headings={[
+                      { title: "Rule Name" },
+                      { title: "Status" },
+                      { title: "Target Payment Methods" },
+                      { title: "Conditions" },
+                      { title: "Action" },
+                      { title: "Actions", alignment: "end" },
+                    ]}
+                  >
+                    {rules.map((rule, index) => (
+                      <IndexTable.Row id={rule.id} key={rule.id} position={index}>
+                        <IndexTable.Cell>
+                          <Text variant="bodyMd" fontWeight="bold" as="span">
+                            {rule.name}
+                          </Text>
+                        </IndexTable.Cell>
+                        <IndexTable.Cell>
+                          <Badge tone={rule.status === RuleStatus.ACTIVE ? "success" : "attention"}>
+                            {rule.status}
+                          </Badge>
+                        </IndexTable.Cell>
+                        <IndexTable.Cell>
+                          <div style={{ maxWidth: "280px" }}>
+                            <InlineStack gap="100" wrap>
+                              {rule.paymentMethodName
+                                .split(",")
+                                .map((t: string) => t.trim())
+                                .filter(Boolean)
+                                .map((alias: string, i: number) => (
+                                  <Badge key={i} tone="info">
+                                    {alias}
+                                  </Badge>
+                                ))}
+                            </InlineStack>
+                          </div>
+                        </IndexTable.Cell>
+                        <IndexTable.Cell>
+                          <div style={{ maxWidth: "260px" }}>
+                            <InlineStack gap="100" wrap>
+                              {rule.minSubtotal && (
+                                <Badge size="small">Subtotal ≥ ${rule.minSubtotal}</Badge>
+                              )}
+                              {rule.maxSubtotal && (
+                                <Badge size="small">Subtotal ≤ ${rule.maxSubtotal}</Badge>
+                              )}
+                              {rule.customerTags && (
+                                <Badge size="small">Tags: [{rule.customerTags}]</Badge>
+                              )}
+                              {rule.countryCodes && (
+                                <Badge size="small">Country: {rule.countryCodes}</Badge>
+                              )}
+                              {rule.currencies && (
+                                <Badge size="small">Currency: {rule.currencies}</Badge>
+                              )}
+                              {rule.productTags && (
+                                <Badge size="small">Product Tags: [{rule.productTags}]</Badge>
+                              )}
+                              {!rule.minSubtotal &&
+                                !rule.maxSubtotal &&
+                                !rule.customerTags &&
+                                !rule.countryCodes &&
+                                !rule.currencies &&
+                                !rule.productTags && (
+                                  <Text as="span" tone="subdued">
+                                    Always applies
+                                  </Text>
+                                )}
+                            </InlineStack>
+                          </div>
+                        </IndexTable.Cell>
+                        <IndexTable.Cell>
+                          <Badge tone={rule.actionType === ActionType.HIDE ? "critical" : "new"}>
+                            {rule.actionType}
+                          </Badge>
+                        </IndexTable.Cell>
+                        <IndexTable.Cell>
+                          <InlineStack align="end">
+                            <ButtonGroup noWrap>
+                              <Button
+                                size="slim"
+                                onClick={() => handleToggle(rule.id)}
+                                disabled={isSubmitting}
+                              >
+                                {rule.status === RuleStatus.ACTIVE ? "Disable" : "Enable"}
+                              </Button>
+                              <Button size="slim" url={`/app/payment-rules?edit=${rule.id}`}>
+                                Edit
+                              </Button>
+                              <Button
+                                size="slim"
+                                tone="critical"
+                                onClick={() => handleDelete(rule.id)}
+                                disabled={isSubmitting}
+                              >
+                                Delete
+                              </Button>
+                            </ButtonGroup>
+                          </InlineStack>
+                        </IndexTable.Cell>
+                      </IndexTable.Row>
+                    ))}
+                  </IndexTable>
+                )}
               </Card>
             </Layout.Section>
           </Layout>

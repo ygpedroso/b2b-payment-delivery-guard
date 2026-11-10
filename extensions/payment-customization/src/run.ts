@@ -138,6 +138,12 @@ export function run(input: RunInput): FunctionRunResult {
   const operations: Operation[] = [];
   const processedMethodIds = new Set<string>();
 
+  console.error(
+    `[B2B Payment Guard] Executing function: subtotal=${subtotal}, customerTags=${JSON.stringify(customerTagsList)}, methods=${JSON.stringify(
+      (input.paymentMethods || []).map((m) => m.name)
+    )}`
+  );
+
   for (const rule of rules) {
     if (rule.status !== RuleStatus.ACTIVE) {
       continue;
@@ -165,11 +171,13 @@ export function run(input: RunInput): FunctionRunResult {
       if (matchType === "ALL") {
         const hasAllTags = normalizedRuleTags.every((t) => customerTagsList.includes(t));
         if (!hasAllTags) {
+          console.error(`[B2B Payment Guard] Rule '${rule.name}' skipped: customer missing required tags. Required: [${normalizedRuleTags.join(", ")}], Actual: [${customerTagsList.join(", ")}]`);
           continue;
         }
       } else {
         const hasAnyTag = normalizedRuleTags.some((t) => customerTagsList.includes(t));
         if (!hasAnyTag) {
+          console.error(`[B2B Payment Guard] Rule '${rule.name}' skipped: customer has none of [${normalizedRuleTags.join(", ")}]. Actual: [${customerTagsList.join(", ")}]`);
           continue;
         }
       }
@@ -209,10 +217,16 @@ export function run(input: RunInput): FunctionRunResult {
     }
 
     // All conditions met! Find target payment method(s)
-    const targetName = (rule.paymentMethodName || "").trim().toLowerCase();
+    const rawTarget = rule.paymentMethodName || "";
+    const targets = rawTarget
+      .split(",")
+      .map((t) => t.trim().toLowerCase())
+      .filter(Boolean);
+
     const matchingMethods = (input.paymentMethods || []).filter((method) => {
       const methodName = (method.name || "").toLowerCase();
-      return methodName.includes(targetName);
+      if (!methodName) return false;
+      return targets.some((target) => methodName.includes(target));
     });
 
     for (const method of matchingMethods) {
@@ -239,6 +253,8 @@ export function run(input: RunInput): FunctionRunResult {
       }
     }
   }
+
+  console.error(`[B2B Payment Guard] Finished execution. Returning ${operations.length} operations: ${JSON.stringify(operations)}`);
 
   return { operations };
 }

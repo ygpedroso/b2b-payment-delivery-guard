@@ -245,4 +245,70 @@ describe("Payment Customization Function", () => {
     const result = run(input);
     expect(result.operations).toEqual([]);
   });
+
+  it("matches multiple payment methods using comma-separated aliases", () => {
+    const devStoreInput: RunInput = {
+      ...baseInput,
+      paymentMethods: [
+        { id: "gid://shopify/PaymentMethod/dev-test", name: "Test payment gateway" },
+        { id: "gid://shopify/PaymentMethod/bank", name: "Bank Deposit / Wire Transfer" },
+      ],
+      paymentCustomization: {
+        metafield: {
+          jsonValue: {
+            rules: [
+              {
+                id: "rule-b2b-cc",
+                name: "Hide Credit Card and Test Gateway for B2B",
+                status: "ACTIVE",
+                customerTags: ["b2b"],
+                paymentMethodName: "Credit Card, Test payment gateway",
+                actionType: "HIDE",
+              },
+            ],
+          },
+        },
+      },
+    };
+
+    const result = run(devStoreInput);
+    expect(result.operations).toHaveLength(1);
+    expect(result.operations[0]).toEqual({
+      hide: {
+        paymentMethodId: "gid://shopify/PaymentMethod/dev-test",
+      },
+    });
+  });
+
+  it("supports comma-separated payment method aliases", () => {
+    const devStoreInput: RunInput = {
+      ...baseInput,
+      paymentMethods: [
+        { id: "gid://shopify/PaymentMethod/1", name: "Custom B2B Invoice Gateway" },
+        { id: "gid://shopify/PaymentMethod/2", name: "Cash on Delivery (COD)" },
+      ],
+      paymentCustomization: {
+        metafield: {
+          jsonValue: {
+            rules: [
+              {
+                id: "rule-multi-target",
+                name: "Hide COD or B2B Invoice",
+                status: "ACTIVE",
+                paymentMethodName: "Custom B2B, Cash on Delivery",
+                actionType: "HIDE",
+              },
+            ],
+          },
+        },
+      },
+    };
+
+    const result = run(devStoreInput);
+    expect(result.operations).toHaveLength(2);
+    expect(result.operations).toEqual([
+      { hide: { paymentMethodId: "gid://shopify/PaymentMethod/1" } },
+      { hide: { paymentMethodId: "gid://shopify/PaymentMethod/2" } },
+    ]);
+  });
 });

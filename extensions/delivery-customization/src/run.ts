@@ -232,11 +232,16 @@ export function run(input: RunInput): FunctionRunResult {
     }
 
     // All conditions met! Find matching delivery options
-    const targetName = (rule.deliveryOptionName || "").trim().toLowerCase();
+    const rawTarget = rule.deliveryOptionName || "";
+    const targets = rawTarget
+      .split(",")
+      .map((t) => t.trim().toLowerCase())
+      .filter(Boolean);
+
     const matchingOptions = deliveryOptions.filter((option) => {
       const title = (option.title || "").toLowerCase();
       const handle = (option.handle || "").toLowerCase();
-      return title.includes(targetName) || handle.includes(targetName);
+      return targets.some((target) => title.includes(target) || handle.includes(target));
     });
 
     for (const option of matchingOptions) {
