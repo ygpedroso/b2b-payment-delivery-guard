@@ -80,7 +80,7 @@ In **Settings &rarr; Shipping and delivery**:
 - **Expected Result:**
   - [ ] **Cash on Delivery** is NOT shown among available payment methods.
   - [ ] Credit Card and Bank Deposit remain visible.
-- **Status:** [ ] PASS / [ ] FAIL
+- **Status:** [X] PASS / [] FAIL
 
 ---
 
@@ -94,7 +94,7 @@ In **Settings &rarr; Shipping and delivery**:
   4. Proceed to checkout and continue to the **Payment** step.
 - **Expected Result:**
   - [ ] **Cash on Delivery** is visible and selectable.
-- **Status:** [ ] PASS / [ ] FAIL
+- **Status:** [X] PASS / [] FAIL
 
 ---
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
 import {
@@ -151,16 +151,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   return redirect("/app/delivery-rules");
 };
 
-export default function DeliveryRules() {
-  const { rules, ruleToEdit, isCreating } = useLoaderData<typeof loader>();
-  const actionData = useActionData<{ error?: string }>();
-  const submit = useSubmit();
-  const navigation = useNavigation();
-  const isSubmitting = navigation.state === "submitting";
+interface DeliveryRuleFormProps {
+  ruleToEdit: any;
+  isSubmitting: boolean;
+  onSubmit: (formData: FormData) => void;
+}
 
-  const showForm = isCreating || !!ruleToEdit;
-
-  // Form states
+function DeliveryRuleForm({ ruleToEdit, isSubmitting, onSubmit }: DeliveryRuleFormProps) {
   const [name, setName] = useState(ruleToEdit?.name ?? "");
   const [isActive, setIsActive] = useState(ruleToEdit ? ruleToEdit.status === RuleStatus.ACTIVE : true);
   const [minTotalAmount, setMinTotalAmount] = useState(ruleToEdit?.minTotalAmount?.toString() ?? "");
@@ -174,6 +171,239 @@ export default function DeliveryRules() {
   const [productTags, setProductTags] = useState(ruleToEdit?.productTags ?? "");
   const [deliveryOptionName, setDeliveryOptionName] = useState(ruleToEdit?.deliveryOptionName ?? "");
   const [actionType, setActionType] = useState<string>(ruleToEdit?.actionType ?? ActionType.HIDE);
+
+  useEffect(() => {
+    setName(ruleToEdit?.name ?? "");
+    setIsActive(ruleToEdit ? ruleToEdit.status === RuleStatus.ACTIVE : true);
+    setMinTotalAmount(ruleToEdit?.minTotalAmount?.toString() ?? "");
+    setMaxTotalAmount(ruleToEdit?.maxTotalAmount?.toString() ?? "");
+    setMinTotalWeight(ruleToEdit?.minTotalWeight?.toString() ?? "");
+    setMaxTotalWeight(ruleToEdit?.maxTotalWeight?.toString() ?? "");
+    setPostalCodes(ruleToEdit?.postalCodes ?? "");
+    setPostalCodeType(ruleToEdit?.postalCodeType ?? PostalCodeType.PREFIX);
+    setCountryCodes(ruleToEdit?.countryCodes ?? "");
+    setProvinceCodes(ruleToEdit?.provinceCodes ?? "");
+    setProductTags(ruleToEdit?.productTags ?? "");
+    setDeliveryOptionName(ruleToEdit?.deliveryOptionName ?? "");
+    setActionType(ruleToEdit?.actionType ?? ActionType.HIDE);
+  }, [ruleToEdit]);
+
+  return (
+    <Layout>
+      <Layout.Section>
+        <Card>
+          <BlockStack gap="400">
+            <Text as="h2" variant="headingMd">
+              {ruleToEdit ? `Edit Rule: ${ruleToEdit.name}` : "Create New Delivery Rule"}
+            </Text>
+            <Divider />
+
+            <TextField
+              label="Rule Name"
+              value={name}
+              onChange={setName}
+              placeholder="e.g. Hide Express for Freight Items"
+              autoComplete="off"
+              helpText="Internal description of this rule."
+            />
+
+            <Checkbox
+              label="Rule Active"
+              checked={isActive}
+              onChange={setIsActive}
+              helpText="When disabled, this rule is saved as Draft and will not execute at checkout."
+            />
+
+            <Divider />
+            <Text as="h3" variant="headingSm">
+              Conditions (All specified conditions must be satisfied)
+            </Text>
+
+            <InlineStack gap="400">
+              <div style={{ flex: 1 }}>
+                <TextField
+                  label="Product Tags"
+                  value={productTags}
+                  onChange={setProductTags}
+                  placeholder="e.g. freight, heavy, oversized, ltl"
+                  autoComplete="off"
+                  helpText="Applies if cart contains any item with one of these product tags."
+                />
+              </div>
+            </InlineStack>
+
+            <InlineStack gap="400">
+              <div style={{ flex: 2 }}>
+                <TextField
+                  label="Postal Code / Zip Filter"
+                  value={postalCodes}
+                  onChange={setPostalCodes}
+                  placeholder="e.g. 902, 903 or ^P\\.?O\\.?\\s?BOX"
+                  autoComplete="off"
+                  helpText="Filter shipping addresses by postal code prefix, regex pattern, or list."
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <Select
+                  label="Postal Code Match Type"
+                  options={[
+                    { label: "Prefix Match", value: PostalCodeType.PREFIX },
+                    { label: "Regex Pattern", value: PostalCodeType.REGEX },
+                    { label: "Exact List", value: PostalCodeType.LIST },
+                  ]}
+                  value={postalCodeType}
+                  onChange={setPostalCodeType}
+                />
+              </div>
+            </InlineStack>
+
+            <InlineStack gap="400">
+              <div style={{ flex: 1 }}>
+                <TextField
+                  label="Minimum Total Weight"
+                  type="number"
+                  value={minTotalWeight}
+                  onChange={setMinTotalWeight}
+                  placeholder="e.g. 50.0"
+                  autoComplete="off"
+                  helpText="Applies if total cart weight is greater than or equal to this."
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <TextField
+                  label="Maximum Total Weight"
+                  type="number"
+                  value={maxTotalWeight}
+                  onChange={setMaxTotalWeight}
+                  placeholder="e.g. 500.0"
+                  autoComplete="off"
+                  helpText="Applies if total cart weight is less than or equal to this."
+                />
+              </div>
+            </InlineStack>
+
+            <InlineStack gap="400">
+              <div style={{ flex: 1 }}>
+                <TextField
+                  label="Minimum Total Order Amount ($)"
+                  type="number"
+                  value={minTotalAmount}
+                  onChange={setMinTotalAmount}
+                  placeholder="e.g. 500.00"
+                  autoComplete="off"
+                  helpText="Applies if cart total is greater than or equal to this amount."
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <TextField
+                  label="Maximum Total Order Amount ($)"
+                  type="number"
+                  value={maxTotalAmount}
+                  onChange={setMaxTotalAmount}
+                  placeholder="e.g. 10000.00"
+                  autoComplete="off"
+                  helpText="Applies if cart total is less than or equal to this amount."
+                />
+              </div>
+            </InlineStack>
+
+            <InlineStack gap="400">
+              <div style={{ flex: 1 }}>
+                <TextField
+                  label="Country Codes"
+                  value={countryCodes}
+                  onChange={setCountryCodes}
+                  placeholder="e.g. US, CA"
+                  autoComplete="off"
+                  helpText="Comma-separated ISO country codes."
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <TextField
+                  label="Province / State Codes"
+                  value={provinceCodes}
+                  onChange={setProvinceCodes}
+                  placeholder="e.g. CA, NY, TX"
+                  autoComplete="off"
+                  helpText="Comma-separated province or state codes."
+                />
+              </div>
+            </InlineStack>
+
+            <Divider />
+            <Text as="h3" variant="headingSm">
+              Target & Action
+            </Text>
+
+            <InlineStack gap="400">
+              <div style={{ flex: 2 }}>
+                <TextField
+                  label="Target Delivery Option Name Match"
+                  value={deliveryOptionName}
+                  onChange={setDeliveryOptionName}
+                  placeholder="e.g. Express, Standard, Freight"
+                  autoComplete="off"
+                  helpText="Case-insensitive substring match against delivery rate titles or handles."
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <Select
+                  label="Action"
+                  options={[
+                    { label: "Hide Option", value: ActionType.HIDE },
+                    { label: "Move to Top (Prioritize)", value: ActionType.MOVE_TO_TOP },
+                    { label: "Move to Bottom", value: ActionType.MOVE_TO_BOTTOM },
+                  ]}
+                  value={actionType}
+                  onChange={setActionType}
+                />
+              </div>
+            </InlineStack>
+
+            <Divider />
+            <InlineStack align="end" gap="300">
+              <Button url="/app/delivery-rules">Cancel</Button>
+              <Button
+                variant="primary"
+                onClick={() => {
+                  const form = new FormData();
+                  form.append("intent", ruleToEdit ? "update" : "create");
+                  if (ruleToEdit) form.append("id", ruleToEdit.id);
+                  form.append("name", name);
+                  form.append("status", isActive ? RuleStatus.ACTIVE : RuleStatus.DRAFT);
+                  form.append("minTotalAmount", minTotalAmount);
+                  form.append("maxTotalAmount", maxTotalAmount);
+                  form.append("minTotalWeight", minTotalWeight);
+                  form.append("maxTotalWeight", maxTotalWeight);
+                  form.append("postalCodes", postalCodes);
+                  form.append("postalCodeType", postalCodeType);
+                  form.append("countryCodes", countryCodes);
+                  form.append("provinceCodes", provinceCodes);
+                  form.append("productTags", productTags);
+                  form.append("deliveryOptionName", deliveryOptionName);
+                  form.append("actionType", actionType);
+                  onSubmit(form);
+                }}
+                loading={isSubmitting}
+              >
+                {ruleToEdit ? "Save Changes" : "Create Rule"}
+              </Button>
+            </InlineStack>
+          </BlockStack>
+        </Card>
+      </Layout.Section>
+    </Layout>
+  );
+}
+
+export default function DeliveryRules() {
+  const { rules, ruleToEdit, isCreating } = useLoaderData<typeof loader>();
+  const actionData = useActionData<{ error?: string }>();
+  const submit = useSubmit();
+  const navigation = useNavigation();
+  const isSubmitting = navigation.state === "submitting";
+
+  const showForm = isCreating || !!ruleToEdit;
 
   const handleDelete = (id: string) => {
     if (confirm("Are you sure you want to delete this delivery rule?")) {
@@ -247,210 +477,12 @@ export default function DeliveryRules() {
         )}
 
         {showForm ? (
-          <Layout>
-            <Layout.Section>
-              <Card>
-                <BlockStack gap="400">
-                  <Text as="h2" variant="headingMd">
-                    {ruleToEdit ? `Edit Rule: ${ruleToEdit.name}` : "Create New Delivery Rule"}
-                  </Text>
-                  <Divider />
-
-                  <TextField
-                    label="Rule Name"
-                    value={name}
-                    onChange={setName}
-                    placeholder="e.g. Hide Express for Freight Items"
-                    autoComplete="off"
-                    helpText="Internal description of this rule."
-                  />
-
-                  <Checkbox
-                    label="Rule Active"
-                    checked={isActive}
-                    onChange={setIsActive}
-                    helpText="When disabled, this rule is saved as Draft and will not execute at checkout."
-                  />
-
-                  <Divider />
-                  <Text as="h3" variant="headingSm">
-                    Conditions (All specified conditions must be satisfied)
-                  </Text>
-
-                  <InlineStack gap="400">
-                    <div style={{ flex: 1 }}>
-                      <TextField
-                        label="Product Tags"
-                        value={productTags}
-                        onChange={setProductTags}
-                        placeholder="e.g. freight, heavy, oversized, ltl"
-                        autoComplete="off"
-                        helpText="Applies if cart contains any item with one of these product tags."
-                      />
-                    </div>
-                  </InlineStack>
-
-                  <InlineStack gap="400">
-                    <div style={{ flex: 2 }}>
-                      <TextField
-                        label="Postal Code / Zip Filter"
-                        value={postalCodes}
-                        onChange={setPostalCodes}
-                        placeholder="e.g. 902, 903 or ^P\\.?O\\.?\\s?BOX"
-                        autoComplete="off"
-                        helpText="Filter shipping addresses by postal code prefix, regex pattern, or list."
-                      />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <Select
-                        label="Postal Code Match Type"
-                        options={[
-                          { label: "Prefix Match", value: PostalCodeType.PREFIX },
-                          { label: "Regex Pattern", value: PostalCodeType.REGEX },
-                          { label: "Exact List", value: PostalCodeType.LIST },
-                        ]}
-                        value={postalCodeType}
-                        onChange={setPostalCodeType}
-                      />
-                    </div>
-                  </InlineStack>
-
-                  <InlineStack gap="400">
-                    <div style={{ flex: 1 }}>
-                      <TextField
-                        label="Minimum Total Weight"
-                        type="number"
-                        value={minTotalWeight}
-                        onChange={setMinTotalWeight}
-                        placeholder="e.g. 50.0"
-                        autoComplete="off"
-                        helpText="Applies if total cart weight is greater than or equal to this."
-                      />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <TextField
-                        label="Maximum Total Weight"
-                        type="number"
-                        value={maxTotalWeight}
-                        onChange={setMaxTotalWeight}
-                        placeholder="e.g. 500.0"
-                        autoComplete="off"
-                        helpText="Applies if total cart weight is less than or equal to this."
-                      />
-                    </div>
-                  </InlineStack>
-
-                  <InlineStack gap="400">
-                    <div style={{ flex: 1 }}>
-                      <TextField
-                        label="Minimum Total Order Amount ($)"
-                        type="number"
-                        value={minTotalAmount}
-                        onChange={setMinTotalAmount}
-                        placeholder="e.g. 500.00"
-                        autoComplete="off"
-                        helpText="Applies if cart total is greater than or equal to this amount."
-                      />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <TextField
-                        label="Maximum Total Order Amount ($)"
-                        type="number"
-                        value={maxTotalAmount}
-                        onChange={setMaxTotalAmount}
-                        placeholder="e.g. 10000.00"
-                        autoComplete="off"
-                        helpText="Applies if cart total is less than or equal to this amount."
-                      />
-                    </div>
-                  </InlineStack>
-
-                  <InlineStack gap="400">
-                    <div style={{ flex: 1 }}>
-                      <TextField
-                        label="Country Codes"
-                        value={countryCodes}
-                        onChange={setCountryCodes}
-                        placeholder="e.g. US, CA"
-                        autoComplete="off"
-                        helpText="Comma-separated ISO country codes."
-                      />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <TextField
-                        label="Province / State Codes"
-                        value={provinceCodes}
-                        onChange={setProvinceCodes}
-                        placeholder="e.g. CA, NY, TX"
-                        autoComplete="off"
-                        helpText="Comma-separated province or state codes."
-                      />
-                    </div>
-                  </InlineStack>
-
-                  <Divider />
-                  <Text as="h3" variant="headingSm">
-                    Target & Action
-                  </Text>
-
-                  <InlineStack gap="400">
-                    <div style={{ flex: 2 }}>
-                      <TextField
-                        label="Target Delivery Option Name Match"
-                        value={deliveryOptionName}
-                        onChange={setDeliveryOptionName}
-                        placeholder="e.g. Express, Standard, Freight"
-                        autoComplete="off"
-                        helpText="Case-insensitive substring match against delivery rate titles or handles."
-                      />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <Select
-                        label="Action"
-                        options={[
-                          { label: "Hide Option", value: ActionType.HIDE },
-                          { label: "Move to Top (Prioritize)", value: ActionType.MOVE_TO_TOP },
-                          { label: "Move to Bottom", value: ActionType.MOVE_TO_BOTTOM },
-                        ]}
-                        value={actionType}
-                        onChange={setActionType}
-                      />
-                    </div>
-                  </InlineStack>
-
-                  <Divider />
-                  <InlineStack align="end" gap="300">
-                    <Button url="/app/delivery-rules">Cancel</Button>
-                    <Button
-                      variant="primary"
-                      onClick={() => {
-                        const form = new FormData();
-                        form.append("intent", ruleToEdit ? "update" : "create");
-                        if (ruleToEdit) form.append("id", ruleToEdit.id);
-                        form.append("name", name);
-                        form.append("status", isActive ? RuleStatus.ACTIVE : RuleStatus.DRAFT);
-                        form.append("minTotalAmount", minTotalAmount);
-                        form.append("maxTotalAmount", maxTotalAmount);
-                        form.append("minTotalWeight", minTotalWeight);
-                        form.append("maxTotalWeight", maxTotalWeight);
-                        form.append("postalCodes", postalCodes);
-                        form.append("postalCodeType", postalCodeType);
-                        form.append("countryCodes", countryCodes);
-                        form.append("provinceCodes", provinceCodes);
-                        form.append("productTags", productTags);
-                        form.append("deliveryOptionName", deliveryOptionName);
-                        form.append("actionType", actionType);
-                        submit(form, { method: "post" });
-                      }}
-                      loading={isSubmitting}
-                    >
-                      {ruleToEdit ? "Save Changes" : "Create Rule"}
-                    </Button>
-                  </InlineStack>
-                </BlockStack>
-              </Card>
-            </Layout.Section>
-          </Layout>
+          <DeliveryRuleForm
+            key={ruleToEdit ? ruleToEdit.id : "new-delivery-rule"}
+            ruleToEdit={ruleToEdit}
+            isSubmitting={isSubmitting}
+            onSubmit={(form) => submit(form, { method: "post" })}
+          />
         ) : (
           <Layout>
             <Layout.Section>
