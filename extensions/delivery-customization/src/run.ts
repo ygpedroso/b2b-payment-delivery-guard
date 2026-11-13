@@ -21,6 +21,7 @@ export interface DeliveryRuleConfig {
   id: string;
   name: string;
   status: RuleStatus | string;
+  priority?: number;
   minTotalAmount?: number | null;
   maxTotalAmount?: number | null;
   minTotalWeight?: number | null;
@@ -152,8 +153,14 @@ export function run(input: RunInput): FunctionRunResult {
   const zip = (address?.zip ?? "").trim().toUpperCase();
 
   const deliveryOptions = deliveryGroup?.deliveryOptions ?? [];
-  const operations: Operation[] = [];
-  const processedHandles = new Set<string>();
+
+  // Sort rules by priority ASC (1=Highest, 5=Lowest)
+  const sortedRules = [...rules].sort((a, b) => (a.priority ?? 3) - (b.priority ?? 3));
+
+  // Target Decision Map: deliveryOptionHandle -> { action: ActionType, priority: number }
+  // Precedence rule: HIDE always dominates MOVE regardless of priority.
+  // Between multiple MOVE actions, the highest priority rule (lowest numeric priority) wins.
+  const targetDecisions = new Map<string, { action: ActionType; priority: number }>();
 
   console.error(
     `[B2B Delivery Guard] Cart context: totalAmount=${totalAmount}, totalWeight=${totalWeight}, cartProductTags=${JSON.stringify(
@@ -163,7 +170,7 @@ export function run(input: RunInput): FunctionRunResult {
     )}`
   );
 
-  for (const rule of rules) {
+  for (const rule of sortedRules) {
     if (rule.status !== RuleStatus.ACTIVE) {
       console.error(`[B2B Delivery Guard] Rule '${rule.name}' skipped: status is ${rule.status}`);
       continue;
@@ -304,36 +311,60 @@ export function run(input: RunInput): FunctionRunResult {
       )}`
     );
 
-    for (const option of matchingOptions) {
-      if (processedHandles.has(option.handle)) {
-        continue;
-      }
+    const rulePriority = rule.priority ?? 3;
+    const ruleAction = (rule.actionType as ActionType) || ActionType.HIDE;
+    const isHide = ruleAction === ActionType.HIDE;
 
-      if (rule.actionType === ActionType.MOVE_TO_TOP) {
-        operations.push({
-          move: {
-            deliveryOptionHandle: option.handle,
-            index: 0,
-          },
+    for (const option of matchingOptions) {
+      const existing = targetDecisions.get(option.handle);
+
+      if (!existing) {
+        targetDecisions.set(option.handle, {
+          action: ruleAction,
+          priority: rulePriority,
         });
-        processedHandles.add(option.handle);
-      } else if (rule.actionType === ActionType.MOVE_TO_BOTTOM) {
-        operations.push({
-          move: {
-            deliveryOptionHandle: option.handle,
-            index: 999,
-          },
-        });
-        processedHandles.add(option.handle);
       } else {
-        // HIDE
-        operations.push({
-          hide: {
-            deliveryOptionHandle: option.handle,
-          },
-        });
-        processedHandles.add(option.handle);
+        // HIDE always takes precedence over MOVE
+        if (isHide) {
+          targetDecisions.set(option.handle, {
+            action: ActionType.HIDE,
+            priority: Math.min(existing.priority, rulePriority),
+          });
+        } else if (existing.action !== ActionType.HIDE) {
+          // Both are MOVE, higher priority (lower numeric value) wins
+          if (rulePriority < existing.priority) {
+            targetDecisions.set(option.handle, {
+              action: ruleAction,
+              priority: rulePriority,
+            });
+          }
+        }
       }
+    }
+  }
+
+  const operations: Operation[] = [];
+  for (const [handle, decision] of targetDecisions.entries()) {
+    if (decision.action === ActionType.MOVE_TO_TOP) {
+      operations.push({
+        move: {
+          deliveryOptionHandle: handle,
+          index: 0,
+        },
+      });
+    } else if (decision.action === ActionType.MOVE_TO_BOTTOM) {
+      operations.push({
+        move: {
+          deliveryOptionHandle: handle,
+          index: 999,
+        },
+      });
+    } else {
+      operations.push({
+        hide: {
+          deliveryOptionHandle: handle,
+        },
+      });
     }
   }
 
@@ -343,3 +374,4 @@ export function run(input: RunInput): FunctionRunResult {
 
   return { operations };
 }
+

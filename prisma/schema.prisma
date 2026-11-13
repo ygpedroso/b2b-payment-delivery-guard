@@ -49,6 +49,7 @@ model PaymentRule {
   // Action
   paymentMethodName String   // target payment method name / substring match e.g. "Cash on Delivery", "Klarna"
   actionType        String   @default("HIDE") // "HIDE" | "MOVE_TO_BOTTOM"
+  priority          Int      @default(3) // 1 (Highest) to 5 (Lowest), default 3 (Medium)
   
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -76,6 +77,7 @@ model DeliveryRule {
   // Action
   deliveryOptionName String   // target delivery option name / substring match e.g. "Express", "Standard"
   actionType         String   @default("HIDE") // "HIDE" | "MOVE_TO_BOTTOM" | "MOVE_TO_TOP"
+  priority           Int      @default(3) // 1 (Highest) to 5 (Lowest), default 3 (Medium)
   
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt

@@ -29,7 +29,14 @@ import { authenticate } from "../shopify.server";
 import { requireBilling } from "../billing.server";
 import db from "../db.server";
 import { syncDeliveryRules } from "../services/rules.server";
-import { RuleStatus, PostalCodeType, ActionType } from "../types/rules";
+import {
+  RuleStatus,
+  PostalCodeType,
+  ActionType,
+  PRIORITY_OPTIONS,
+  getPriorityLabel,
+  getPriorityBadgeTone,
+} from "../types/rules";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session, billing } = await authenticate.admin(request);
@@ -41,7 +48,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   const rules = await db.deliveryRule.findMany({
     where: { shop },
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ priority: "asc" }, { createdAt: "asc" }],
   });
 
   const ruleToEdit = editId
@@ -105,6 +112,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   };
 
   const status = formData.get("status") === RuleStatus.ACTIVE ? RuleStatus.ACTIVE : RuleStatus.DRAFT;
+  const priority = parseInt((formData.get("priority") as string) || "3", 10);
   const minTotalAmount = parseNumber(formData.get("minTotalAmount"));
   const maxTotalAmount = parseNumber(formData.get("maxTotalAmount"));
   const minTotalWeight = parseNumber(formData.get("minTotalWeight"));
@@ -119,6 +127,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const ruleData = {
     name,
     status,
+    priority,
     minTotalAmount,
     maxTotalAmount,
     minTotalWeight,
@@ -161,6 +170,7 @@ interface DeliveryRuleFormProps {
 function DeliveryRuleForm({ ruleToEdit, isSubmitting, onSubmit }: DeliveryRuleFormProps) {
   const [name, setName] = useState(ruleToEdit?.name ?? "");
   const [isActive, setIsActive] = useState(ruleToEdit ? ruleToEdit.status === RuleStatus.ACTIVE : true);
+  const [priority, setPriority] = useState<string>(ruleToEdit?.priority?.toString() ?? "3");
   const [minTotalAmount, setMinTotalAmount] = useState(ruleToEdit?.minTotalAmount?.toString() ?? "");
   const [maxTotalAmount, setMaxTotalAmount] = useState(ruleToEdit?.maxTotalAmount?.toString() ?? "");
   const [minTotalWeight, setMinTotalWeight] = useState(ruleToEdit?.minTotalWeight?.toString() ?? "");
@@ -176,6 +186,7 @@ function DeliveryRuleForm({ ruleToEdit, isSubmitting, onSubmit }: DeliveryRuleFo
   useEffect(() => {
     setName(ruleToEdit?.name ?? "");
     setIsActive(ruleToEdit ? ruleToEdit.status === RuleStatus.ACTIVE : true);
+    setPriority(ruleToEdit?.priority?.toString() ?? "3");
     setMinTotalAmount(ruleToEdit?.minTotalAmount?.toString() ?? "");
     setMaxTotalAmount(ruleToEdit?.maxTotalAmount?.toString() ?? "");
     setMinTotalWeight(ruleToEdit?.minTotalWeight?.toString() ?? "");
@@ -359,6 +370,15 @@ function DeliveryRuleForm({ ruleToEdit, isSubmitting, onSubmit }: DeliveryRuleFo
                   onChange={setActionType}
                 />
               </div>
+              <div style={{ flex: 1 }}>
+                <Select
+                  label="Priority"
+                  options={PRIORITY_OPTIONS}
+                  value={priority}
+                  onChange={setPriority}
+                  helpText="Higher priority rules evaluate first. Hide actions always override move actions."
+                />
+              </div>
             </InlineStack>
 
             <Divider />
@@ -372,6 +392,7 @@ function DeliveryRuleForm({ ruleToEdit, isSubmitting, onSubmit }: DeliveryRuleFo
                   if (ruleToEdit) form.append("id", ruleToEdit.id);
                   form.append("name", name);
                   form.append("status", isActive ? RuleStatus.ACTIVE : RuleStatus.DRAFT);
+                  form.append("priority", priority);
                   form.append("minTotalAmount", minTotalAmount);
                   form.append("maxTotalAmount", maxTotalAmount);
                   form.append("minTotalWeight", minTotalWeight);
@@ -479,6 +500,7 @@ export default function DeliveryRules() {
                     headings={[
                       { title: "Rule Name" },
                       { title: "Status" },
+                      { title: "Priority" },
                       { title: "Target Options" },
                       { title: "Conditions" },
                       { title: "Action" },
@@ -495,6 +517,11 @@ export default function DeliveryRules() {
                         <IndexTable.Cell>
                           <Badge tone={rule.status === RuleStatus.ACTIVE ? "success" : "attention"}>
                             {rule.status}
+                          </Badge>
+                        </IndexTable.Cell>
+                        <IndexTable.Cell>
+                          <Badge tone={getPriorityBadgeTone(rule.priority)}>
+                            {getPriorityLabel(rule.priority)}
                           </Badge>
                         </IndexTable.Cell>
                         <IndexTable.Cell>

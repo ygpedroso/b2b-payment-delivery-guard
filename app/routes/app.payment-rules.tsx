@@ -29,7 +29,13 @@ import { authenticate } from "../shopify.server";
 import { requireBilling } from "../billing.server";
 import db from "../db.server";
 import { syncPaymentRules } from "../services/rules.server";
-import { RuleStatus, ActionType } from "../types/rules";
+import {
+  RuleStatus,
+  ActionType,
+  PRIORITY_OPTIONS,
+  getPriorityLabel,
+  getPriorityBadgeTone,
+} from "../types/rules";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session, billing } = await authenticate.admin(request);
@@ -41,7 +47,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   const rules = await db.paymentRule.findMany({
     where: { shop },
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ priority: "asc" }, { createdAt: "asc" }],
   });
 
   const ruleToEdit = editId
@@ -105,6 +111,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   };
 
   const status = formData.get("status") === RuleStatus.ACTIVE ? RuleStatus.ACTIVE : RuleStatus.DRAFT;
+  const priority = parseInt((formData.get("priority") as string) || "3", 10);
   const minSubtotal = parseNumber(formData.get("minSubtotal"));
   const maxSubtotal = parseNumber(formData.get("maxSubtotal"));
   const customerTags = (formData.get("customerTags") as string)?.trim() || null;
@@ -118,6 +125,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const ruleData = {
     name,
     status,
+    priority,
     minSubtotal,
     maxSubtotal,
     customerTags,
@@ -159,6 +167,7 @@ interface PaymentRuleFormProps {
 function PaymentRuleForm({ ruleToEdit, isSubmitting, onSubmit }: PaymentRuleFormProps) {
   const [name, setName] = useState(ruleToEdit?.name ?? "");
   const [isActive, setIsActive] = useState(ruleToEdit ? ruleToEdit.status === RuleStatus.ACTIVE : true);
+  const [priority, setPriority] = useState<string>(ruleToEdit?.priority?.toString() ?? "3");
   const [minSubtotal, setMinSubtotal] = useState(ruleToEdit?.minSubtotal?.toString() ?? "");
   const [maxSubtotal, setMaxSubtotal] = useState(ruleToEdit?.maxSubtotal?.toString() ?? "");
   const [customerTags, setCustomerTags] = useState(ruleToEdit?.customerTags ?? "");
@@ -173,6 +182,7 @@ function PaymentRuleForm({ ruleToEdit, isSubmitting, onSubmit }: PaymentRuleForm
   useEffect(() => {
     setName(ruleToEdit?.name ?? "");
     setIsActive(ruleToEdit ? ruleToEdit.status === RuleStatus.ACTIVE : true);
+    setPriority(ruleToEdit?.priority?.toString() ?? "3");
     setMinSubtotal(ruleToEdit?.minSubtotal?.toString() ?? "");
     setMaxSubtotal(ruleToEdit?.maxSubtotal?.toString() ?? "");
     setCustomerTags(ruleToEdit?.customerTags ?? "");
@@ -322,9 +332,9 @@ function PaymentRuleForm({ ruleToEdit, isSubmitting, onSubmit }: PaymentRuleForm
                   label="Target Payment Method Name"
                   value={paymentMethodName}
                   onChange={setPaymentMethodName}
-                  placeholder="e.g. Cash on Delivery, Klarna, Credit Card, Bogus Gateway"
+                  placeholder="e.g. Cash on Delivery, Klarna, Bank Deposit, Bogus Gateway"
                   autoComplete="off"
-                  helpText="Case-insensitive match against checkout payment method names. Supports comma-separated aliases (e.g. Credit Card, Bogus Gateway, Shopify Payments)."
+                  helpText="Case-insensitive match against checkout payment method names. Supports comma-separated aliases (e.g. Cash on Delivery, Bank Deposit, Bogus Gateway)."
                 />
               </div>
               <div style={{ flex: 1 }}>
@@ -336,6 +346,15 @@ function PaymentRuleForm({ ruleToEdit, isSubmitting, onSubmit }: PaymentRuleForm
                   ]}
                   value={actionType}
                   onChange={setActionType}
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <Select
+                  label="Priority"
+                  options={PRIORITY_OPTIONS}
+                  value={priority}
+                  onChange={setPriority}
+                  helpText="Higher priority rules evaluate first. Hide actions always override move actions."
                 />
               </div>
             </InlineStack>
@@ -351,6 +370,7 @@ function PaymentRuleForm({ ruleToEdit, isSubmitting, onSubmit }: PaymentRuleForm
                   if (ruleToEdit) form.append("id", ruleToEdit.id);
                   form.append("name", name);
                   form.append("status", isActive ? RuleStatus.ACTIVE : RuleStatus.DRAFT);
+                  form.append("priority", priority);
                   form.append("minSubtotal", minSubtotal);
                   form.append("maxSubtotal", maxSubtotal);
                   form.append("customerTags", customerTags);
@@ -457,6 +477,7 @@ export default function PaymentRules() {
                     headings={[
                       { title: "Rule Name" },
                       { title: "Status" },
+                      { title: "Priority" },
                       { title: "Target Methods" },
                       { title: "Conditions" },
                       { title: "Action" },
@@ -473,6 +494,11 @@ export default function PaymentRules() {
                         <IndexTable.Cell>
                           <Badge tone={rule.status === RuleStatus.ACTIVE ? "success" : "attention"}>
                             {rule.status}
+                          </Badge>
+                        </IndexTable.Cell>
+                        <IndexTable.Cell>
+                          <Badge tone={getPriorityBadgeTone(rule.priority)}>
+                            {getPriorityLabel(rule.priority)}
                           </Badge>
                         </IndexTable.Cell>
                         <IndexTable.Cell>

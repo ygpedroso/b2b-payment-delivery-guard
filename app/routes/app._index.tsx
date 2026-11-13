@@ -25,7 +25,13 @@ import { authenticate } from "../shopify.server";
 import { requireBilling } from "../billing.server";
 import db from "../db.server";
 import { syncPaymentRules, syncDeliveryRules } from "../services/rules.server";
-import { RuleStatus, RuleType, ActionType } from "../types/rules";
+import {
+  RuleStatus,
+  RuleType,
+  ActionType,
+  getPriorityLabel,
+  getPriorityBadgeTone,
+} from "../types/rules";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session, billing } = await authenticate.admin(request);
@@ -36,11 +42,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const [paymentRules, deliveryRules, setting] = await Promise.all([
     db.paymentRule.findMany({
       where: { shop },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ priority: "asc" }, { createdAt: "asc" }],
     }),
     db.deliveryRule.findMany({
       where: { shop },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ priority: "asc" }, { createdAt: "asc" }],
     }),
     db.customizationSetting.findUnique({
       where: { shop },
@@ -224,7 +230,7 @@ export default function Index() {
                 <Box padding="600">
                   <BlockStack align="center" inlineAlign="center" gap="200">
                     <Text as="p" variant="bodyMd" tone="subdued">
-                      No payment rules created yet. Create a rule to hide COD over $200 or restrict credit cards for wholesale buyers.
+                      No payment rules created yet. Create a rule to hide COD over $200 or restrict installment methods for wholesale buyers.
                     </Text>
                     <Button url="/app/payment-rules?new=1">Create First Payment Rule</Button>
                   </BlockStack>
@@ -237,6 +243,7 @@ export default function Index() {
                   headings={[
                     { title: "Rule Name" },
                     { title: "Status" },
+                    { title: "Priority" },
                     { title: "Target Methods" },
                     { title: "Action" },
                     { title: "Actions", alignment: "end" },
@@ -252,6 +259,11 @@ export default function Index() {
                       <IndexTable.Cell>
                         <Badge tone={rule.status === RuleStatus.ACTIVE ? "success" : "attention"}>
                           {rule.status}
+                        </Badge>
+                      </IndexTable.Cell>
+                      <IndexTable.Cell>
+                        <Badge tone={getPriorityBadgeTone(rule.priority)}>
+                          {getPriorityLabel(rule.priority)}
                         </Badge>
                       </IndexTable.Cell>
                       <IndexTable.Cell>
@@ -334,6 +346,7 @@ export default function Index() {
                   headings={[
                     { title: "Rule Name" },
                     { title: "Status" },
+                    { title: "Priority" },
                     { title: "Target Delivery Options" },
                     { title: "Action" },
                     { title: "Actions", alignment: "end" },
@@ -349,6 +362,11 @@ export default function Index() {
                       <IndexTable.Cell>
                         <Badge tone={rule.status === RuleStatus.ACTIVE ? "success" : "attention"}>
                           {rule.status}
+                        </Badge>
+                      </IndexTable.Cell>
+                      <IndexTable.Cell>
+                        <Badge tone={getPriorityBadgeTone(rule.priority)}>
+                          {getPriorityLabel(rule.priority)}
                         </Badge>
                       </IndexTable.Cell>
                       <IndexTable.Cell>
@@ -416,7 +434,7 @@ export default function Index() {
                       2. Force Net Terms for B2B Customers
                     </Text>
                     <Text as="p" variant="bodySm" tone="subdued">
-                      Hide Credit Cards and BNPL (Klarna/Affirm) for buyers tagged with <code>b2b</code> or <code>wholesale</code>.
+                      Hide BNPL (Klarna/Affirm) or Cash on Delivery for buyers tagged with <code>b2b</code> or <code>wholesale</code>.
                     </Text>
                   </div>
                   <div style={{ flex: 1, minWidth: "260px" }}>

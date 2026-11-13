@@ -311,4 +311,83 @@ describe("Payment Customization Function", () => {
       { hide: { paymentMethodId: "gid://shopify/PaymentMethod/2" } },
     ]);
   });
+
+  it("ensures HIDE always dominates MOVE_TO_BOTTOM regardless of rule priority or order", () => {
+    const input: RunInput = {
+      ...baseInput,
+      paymentCustomization: {
+        metafield: {
+          jsonValue: {
+            rules: [
+              {
+                id: "rule-move-first",
+                name: "Move COD to bottom (Priority 1 Highest)",
+                status: "ACTIVE",
+                priority: 1,
+                paymentMethodName: "Cash on Delivery",
+                actionType: "MOVE_TO_BOTTOM",
+              },
+              {
+                id: "rule-hide-second",
+                name: "Hide COD (Priority 4 Low)",
+                status: "ACTIVE",
+                priority: 4,
+                paymentMethodName: "Cash on Delivery",
+                actionType: "HIDE",
+              },
+            ],
+          },
+        },
+      },
+    };
+
+    const result = run(input);
+    // HIDE must dominate, so Cash on Delivery should be HIDDEN, NOT MOVED
+    expect(result.operations).toHaveLength(1);
+    expect(result.operations[0]).toEqual({
+      hide: {
+        paymentMethodId: "gid://shopify/PaymentMethod/2",
+      },
+    });
+  });
+
+  it("evaluates rules in priority order when multiple non-conflicting rules match", () => {
+    const input: RunInput = {
+      ...baseInput,
+      paymentCustomization: {
+        metafield: {
+          jsonValue: {
+            rules: [
+              {
+                id: "rule-low",
+                name: "Hide Klarna (Priority 4 Low)",
+                status: "ACTIVE",
+                priority: 4,
+                paymentMethodName: "Klarna",
+                actionType: "HIDE",
+              },
+              {
+                id: "rule-high",
+                name: "Hide Credit Card (Priority 1 Highest)",
+                status: "ACTIVE",
+                priority: 1,
+                paymentMethodName: "Credit Card",
+                actionType: "HIDE",
+              },
+            ],
+          },
+        },
+      },
+    };
+
+    const result = run(input);
+    expect(result.operations).toHaveLength(2);
+    expect(result.operations).toContainEqual({
+      hide: { paymentMethodId: "gid://shopify/PaymentMethod/1" },
+    });
+    expect(result.operations).toContainEqual({
+      hide: { paymentMethodId: "gid://shopify/PaymentMethod/3" },
+    });
+  });
 });
+

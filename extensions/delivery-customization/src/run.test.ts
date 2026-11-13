@@ -319,4 +319,84 @@ describe("Delivery Customization Function", () => {
       { hide: { deliveryOptionHandle: "shipping-express-air" } },
     ]);
   });
+
+  it("ensures HIDE always dominates MOVE_TO_TOP or MOVE_TO_BOTTOM regardless of priority", () => {
+    const input: RunInput = {
+      ...baseInput,
+      deliveryCustomization: {
+        metafield: {
+          jsonValue: {
+            rules: [
+              {
+                id: "rule-move-top",
+                name: "Move Express to Top (Priority 1 Highest)",
+                status: "ACTIVE",
+                priority: 1,
+                deliveryOptionName: "Express",
+                actionType: "MOVE_TO_TOP",
+              },
+              {
+                id: "rule-hide-express",
+                name: "Hide Express (Priority 4 Low)",
+                status: "ACTIVE",
+                priority: 4,
+                deliveryOptionName: "Express",
+                actionType: "HIDE",
+              },
+            ],
+          },
+        },
+      },
+    };
+
+    const result = run(input);
+    // HIDE must dominate: Express should be HIDDEN, NOT MOVED
+    expect(result.operations).toHaveLength(1);
+    expect(result.operations[0]).toEqual({
+      hide: {
+        deliveryOptionHandle: "shipping-express-air",
+      },
+    });
+  });
+
+  it("resolves between multiple MOVE actions by choosing the higher priority rule", () => {
+    const input: RunInput = {
+      ...baseInput,
+      deliveryCustomization: {
+        metafield: {
+          jsonValue: {
+            rules: [
+              {
+                id: "rule-move-bottom",
+                name: "Move Standard to Bottom (Priority 4 Low)",
+                status: "ACTIVE",
+                priority: 4,
+                deliveryOptionName: "Standard",
+                actionType: "MOVE_TO_BOTTOM",
+              },
+              {
+                id: "rule-move-top",
+                name: "Move Standard to Top (Priority 2 High)",
+                status: "ACTIVE",
+                priority: 2,
+                deliveryOptionName: "Standard",
+                actionType: "MOVE_TO_TOP",
+              },
+            ],
+          },
+        },
+      },
+    };
+
+    const result = run(input);
+    // Priority 2 (High) beats Priority 4 (Low), so MOVE_TO_TOP wins
+    expect(result.operations).toHaveLength(1);
+    expect(result.operations[0]).toEqual({
+      move: {
+        deliveryOptionHandle: "shipping-standard-ground",
+        index: 0,
+      },
+    });
+  });
 });
+

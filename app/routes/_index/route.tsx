@@ -77,7 +77,7 @@ export default function Index() {
               </div>
               <h2 className={styles.featureTitle}>B2B Payment Customization</h2>
               <p className={styles.featureDescription}>
-                Hide Cash on Delivery for large orders, restrict Credit Cards or BNPL for B2B accounts, and force Bank Wire / Net Terms based on customer tags.
+                Hide Cash on Delivery for large orders, restrict BNPL or manual methods for B2B accounts, and force Bank Wire / Net Terms based on customer tags.
               </p>
             </article>
 

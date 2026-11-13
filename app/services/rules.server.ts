@@ -6,6 +6,7 @@ export interface SerializedPaymentRule {
   id: string;
   name: string;
   status: RuleStatus | string;
+  priority: number;
   minSubtotal: number | null;
   maxSubtotal: number | null;
   customerTags: string[];
@@ -22,6 +23,7 @@ export interface SerializedDeliveryRule {
   id: string;
   name: string;
   status: RuleStatus | string;
+  priority: number;
   minTotalAmount: number | null;
   maxTotalAmount: number | null;
   minTotalWeight: number | null;
@@ -49,13 +51,14 @@ export function parseCommaSeparated(value?: string | null): string[] {
 export async function syncPaymentRules(admin: AdminApiContext, shop: string) {
   const activeRules = await db.paymentRule.findMany({
     where: { shop, status: RuleStatus.ACTIVE },
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ priority: "asc" }, { createdAt: "asc" }],
   });
 
   const serializedRules: SerializedPaymentRule[] = activeRules.map((r) => ({
     id: r.id,
     name: r.name,
     status: r.status,
+    priority: r.priority ?? 3,
     minSubtotal: r.minSubtotal,
     maxSubtotal: r.maxSubtotal,
     customerTags: parseCommaSeparated(r.customerTags),
@@ -222,13 +225,14 @@ export async function syncPaymentRules(admin: AdminApiContext, shop: string) {
 export async function syncDeliveryRules(admin: AdminApiContext, shop: string) {
   const activeRules = await db.deliveryRule.findMany({
     where: { shop, status: RuleStatus.ACTIVE },
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ priority: "asc" }, { createdAt: "asc" }],
   });
 
   const serializedRules: SerializedDeliveryRule[] = activeRules.map((r) => ({
     id: r.id,
     name: r.name,
     status: r.status,
+    priority: r.priority ?? 3,
     minTotalAmount: r.minTotalAmount,
     maxTotalAmount: r.maxTotalAmount,
     minTotalWeight: r.minTotalWeight,

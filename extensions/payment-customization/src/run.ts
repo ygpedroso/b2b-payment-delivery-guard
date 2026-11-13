@@ -14,6 +14,7 @@ export interface PaymentRuleConfig {
   id: string;
   name: string;
   status: RuleStatus | string;
+  priority?: number;
   minSubtotal?: number | null;
   maxSubtotal?: number | null;
   customerTags?: string[];
@@ -135,8 +136,8 @@ export function run(input: RunInput): FunctionRunResult {
     }
   }
 
-  const operations: Operation[] = [];
-  const processedMethodIds = new Set<string>();
+  // Sort rules by priority ASC (1=Highest, 5=Lowest)
+  const sortedRules = [...rules].sort((a, b) => (a.priority ?? 3) - (b.priority ?? 3));
 
   console.error(
     `[B2B Payment Guard] Executing function: subtotal=${subtotal}, customerTags=${JSON.stringify(customerTagsList)}, methods=${JSON.stringify(
@@ -144,7 +145,12 @@ export function run(input: RunInput): FunctionRunResult {
     )}`
   );
 
-  for (const rule of rules) {
+  // Target Decision Map: methodId -> { action: ActionType, priority: number }
+  // Precedence rule: HIDE always dominates MOVE regardless of priority.
+  // Between multiple MOVE actions, the highest priority rule (lowest numeric priority) wins.
+  const targetDecisions = new Map<string, { action: ActionType; priority: number }>();
+
+  for (const rule of sortedRules) {
     if (rule.status !== RuleStatus.ACTIVE) {
       continue;
     }
@@ -229,28 +235,53 @@ export function run(input: RunInput): FunctionRunResult {
       return targets.some((target) => methodName.includes(target));
     });
 
-    for (const method of matchingMethods) {
-      if (processedMethodIds.has(method.id)) {
-        continue;
-      }
+    const rulePriority = rule.priority ?? 3;
+    const ruleAction = (rule.actionType as ActionType) || ActionType.HIDE;
+    const isHide = ruleAction === ActionType.HIDE;
 
-      if (rule.actionType === ActionType.MOVE_TO_BOTTOM) {
-        operations.push({
-          move: {
-            paymentMethodId: method.id,
-            index: 999,
-          },
+    for (const method of matchingMethods) {
+      const existing = targetDecisions.get(method.id);
+
+      if (!existing) {
+        targetDecisions.set(method.id, {
+          action: isHide ? ActionType.HIDE : ActionType.MOVE_TO_BOTTOM,
+          priority: rulePriority,
         });
-        processedMethodIds.add(method.id);
       } else {
-        // Default action is HIDE
-        operations.push({
-          hide: {
-            paymentMethodId: method.id,
-          },
-        });
-        processedMethodIds.add(method.id);
+        // HIDE always takes precedence over MOVE
+        if (isHide) {
+          targetDecisions.set(method.id, {
+            action: ActionType.HIDE,
+            priority: Math.min(existing.priority, rulePriority),
+          });
+        } else if (existing.action !== ActionType.HIDE) {
+          // Both are MOVE, higher priority (lower numeric value) wins
+          if (rulePriority < existing.priority) {
+            targetDecisions.set(method.id, {
+              action: ActionType.MOVE_TO_BOTTOM,
+              priority: rulePriority,
+            });
+          }
+        }
       }
+    }
+  }
+
+  const operations: Operation[] = [];
+  for (const [methodId, decision] of targetDecisions.entries()) {
+    if (decision.action === ActionType.MOVE_TO_BOTTOM) {
+      operations.push({
+        move: {
+          paymentMethodId: methodId,
+          index: 999,
+        },
+      });
+    } else {
+      operations.push({
+        hide: {
+          paymentMethodId: methodId,
+        },
+      });
     }
   }
 
