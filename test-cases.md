@@ -235,7 +235,7 @@ In **Settings &rarr; Shipping and delivery**:
 - **Expected Result:**
   - [ ] Cash on Delivery is now visible (rule is bypassed).
   - [ ] Clicking **Enable** reactivates the rule immediately.
-- **Status:** [ ] PASS / [ ] FAIL
+- **Status:** [X] PASS / [ ] FAIL
 
 ---
 
@@ -248,7 +248,7 @@ In **Settings &rarr; Shipping and delivery**:
 - **Expected Result:**
   - [ ] Neither page contains an `<input name="shop">` or text input asking for a myshopify domain.
   - [ ] Both pages display official Fastloom Labs branding, app icon, feature descriptions, and direct the user to install via the Shopify App Store.
-- **Status:** [ ] PASS / [ ] FAIL
+- **Status:** [X] PASS / [ ] FAIL
 
 ---
 
@@ -262,4 +262,4 @@ In **Settings &rarr; Shipping and delivery**:
      - Header: `Cache-Control: no-cache, no-store, must-revalidate`
 - **Expected Result:**
   - [ ] Health check responds with 200 OK.
-- **Status:** [ ] PASS / [ ] FAIL
+- **Status:** [X] PASS / [ ] FAIL
