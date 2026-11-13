@@ -124,7 +124,7 @@ In **Settings &rarr; Shipping and delivery**:
 - **Expected Result:**
   - [ ] Targeted methods (**Cash on Delivery**, **Klarna / Affirm**, and on Plus stores **Credit Card**) are hidden.
   - [ ] **Bank Deposit / Wire Transfer** remains visible and selectable.
-- **Status:** [ ] PASS / [ ] FAIL
+- **Status:** [X] PASS / [ ] FAIL
 
 ---
 
@@ -152,7 +152,7 @@ In **Settings &rarr; Shipping and delivery**:
   2. Proceed to payment.
 - **Expected Result:**
   - [ ] Rule only triggers for matching country code `US`.
-- **Status:** [ ] PASS / [ ] FAIL
+- **Status:** [X] PASS / [ ] FAIL
 
 ---
 

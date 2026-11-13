@@ -10,12 +10,13 @@ import {
   Layout,
   Card,
   Button,
+  ButtonGroup,
   Banner,
   BlockStack,
   Text,
   Badge,
   InlineStack,
-  DataTable,
+  IndexTable,
   Box,
   Divider,
   Thumbnail,
@@ -24,7 +25,7 @@ import { authenticate } from "../shopify.server";
 import { requireBilling } from "../billing.server";
 import db from "../db.server";
 import { syncPaymentRules, syncDeliveryRules } from "../services/rules.server";
-import { RuleStatus, RuleType } from "../types/rules";
+import { RuleStatus, RuleType, ActionType } from "../types/rules";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session, billing } = await authenticate.admin(request);
@@ -115,58 +116,6 @@ export default function Index() {
     );
   };
 
-  const paymentRows = paymentRules.map((rule) => [
-    <Text key={rule.id} variant="bodyMd" fontWeight="bold" as="span">
-      {rule.name}
-    </Text>,
-    <Badge
-      key={`${rule.id}-status`}
-      tone={rule.status === RuleStatus.ACTIVE ? "success" : "attention"}
-    >
-      {rule.status}
-    </Badge>,
-    <span key={`${rule.id}-target`}>{rule.paymentMethodName}</span>,
-    <Badge key={`${rule.id}-action`}>{rule.actionType}</Badge>,
-    <InlineStack key={`${rule.id}-ops`} gap="200">
-      <Button
-        size="slim"
-        onClick={() => handleToggle(RuleType.PAYMENT, rule.id)}
-        disabled={isSubmitting}
-      >
-        {rule.status === RuleStatus.ACTIVE ? "Disable" : "Enable"}
-      </Button>
-      <Button size="slim" url={`/app/payment-rules?edit=${rule.id}`}>
-        Edit
-      </Button>
-    </InlineStack>,
-  ]);
-
-  const deliveryRows = deliveryRules.map((rule) => [
-    <Text key={rule.id} variant="bodyMd" fontWeight="bold" as="span">
-      {rule.name}
-    </Text>,
-    <Badge
-      key={`${rule.id}-status`}
-      tone={rule.status === RuleStatus.ACTIVE ? "success" : "attention"}
-    >
-      {rule.status}
-    </Badge>,
-    <span key={`${rule.id}-target`}>{rule.deliveryOptionName}</span>,
-    <Badge key={`${rule.id}-action`}>{rule.actionType}</Badge>,
-    <InlineStack key={`${rule.id}-ops`} gap="200">
-      <Button
-        size="slim"
-        onClick={() => handleToggle(RuleType.DELIVERY, rule.id)}
-        disabled={isSubmitting}
-      >
-        {rule.status === RuleStatus.ACTIVE ? "Disable" : "Enable"}
-      </Button>
-      <Button size="slim" url={`/app/delivery-rules?edit=${rule.id}`}>
-        Edit
-      </Button>
-    </InlineStack>,
-  ]);
-
   return (
     <Page
       title="B2B Payment & Delivery Guard"
@@ -253,8 +202,8 @@ export default function Index() {
 
           {/* Payment Rules Overview */}
           <Layout.Section>
-            <Card>
-              <BlockStack gap="400">
+            <Card padding="0">
+              <Box padding="400">
                 <InlineStack align="space-between">
                   <BlockStack gap="100">
                     <Text as="h2" variant="headingMd">
@@ -268,31 +217,90 @@ export default function Index() {
                     Add Payment Rule
                   </Button>
                 </InlineStack>
+              </Box>
+              <Divider />
 
-                {paymentRules.length === 0 ? (
-                  <Box padding="400">
-                    <BlockStack align="center" inlineAlign="center" gap="200">
-                      <Text as="p" variant="bodyMd" tone="subdued">
-                        No payment rules created yet. Create a rule to hide COD over $200 or restrict credit cards for wholesale buyers.
-                      </Text>
-                      <Button url="/app/payment-rules?new=1">Create First Payment Rule</Button>
-                    </BlockStack>
-                  </Box>
-                ) : (
-                  <DataTable
-                    columnContentTypes={["text", "text", "text", "text", "text"]}
-                    headings={["Rule Name", "Status", "Target Method", "Action", "Actions"]}
-                    rows={paymentRows}
-                  />
-                )}
-              </BlockStack>
+              {paymentRules.length === 0 ? (
+                <Box padding="600">
+                  <BlockStack align="center" inlineAlign="center" gap="200">
+                    <Text as="p" variant="bodyMd" tone="subdued">
+                      No payment rules created yet. Create a rule to hide COD over $200 or restrict credit cards for wholesale buyers.
+                    </Text>
+                    <Button url="/app/payment-rules?new=1">Create First Payment Rule</Button>
+                  </BlockStack>
+                </Box>
+              ) : (
+                <IndexTable
+                  resourceName={{ singular: "payment rule", plural: "payment rules" }}
+                  itemCount={paymentRules.length}
+                  selectable={false}
+                  headings={[
+                    { title: "Rule Name" },
+                    { title: "Status" },
+                    { title: "Target Methods" },
+                    { title: "Action" },
+                    { title: "Actions", alignment: "end" },
+                  ]}
+                >
+                  {paymentRules.map((rule, index) => (
+                    <IndexTable.Row id={rule.id} key={rule.id} position={index}>
+                      <IndexTable.Cell>
+                        <Text variant="bodyMd" fontWeight="bold" as="span">
+                          {rule.name}
+                        </Text>
+                      </IndexTable.Cell>
+                      <IndexTable.Cell>
+                        <Badge tone={rule.status === RuleStatus.ACTIVE ? "success" : "attention"}>
+                          {rule.status}
+                        </Badge>
+                      </IndexTable.Cell>
+                      <IndexTable.Cell>
+                        <div style={{ maxWidth: "320px" }}>
+                          <InlineStack gap="100" wrap>
+                            {rule.paymentMethodName
+                              .split(",")
+                              .map((t: string) => t.trim())
+                              .filter(Boolean)
+                              .map((alias: string, i: number) => (
+                                <Badge key={i} tone="info">
+                                  {alias}
+                                </Badge>
+                              ))}
+                          </InlineStack>
+                        </div>
+                      </IndexTable.Cell>
+                      <IndexTable.Cell>
+                        <Badge tone={rule.actionType === ActionType.HIDE ? "critical" : "new"}>
+                          {rule.actionType}
+                        </Badge>
+                      </IndexTable.Cell>
+                      <IndexTable.Cell>
+                        <InlineStack align="end">
+                          <ButtonGroup noWrap>
+                            <Button
+                              size="slim"
+                              onClick={() => handleToggle(RuleType.PAYMENT, rule.id)}
+                              disabled={isSubmitting}
+                            >
+                              {rule.status === RuleStatus.ACTIVE ? "Disable" : "Enable"}
+                            </Button>
+                            <Button size="slim" url={`/app/payment-rules?edit=${rule.id}`}>
+                              Edit
+                            </Button>
+                          </ButtonGroup>
+                        </InlineStack>
+                      </IndexTable.Cell>
+                    </IndexTable.Row>
+                  ))}
+                </IndexTable>
+              )}
             </Card>
           </Layout.Section>
 
           {/* Delivery Rules Overview */}
           <Layout.Section>
-            <Card>
-              <BlockStack gap="400">
+            <Card padding="0">
+              <Box padding="400">
                 <InlineStack align="space-between">
                   <BlockStack gap="100">
                     <Text as="h2" variant="headingMd">
@@ -306,24 +314,83 @@ export default function Index() {
                     Add Delivery Rule
                   </Button>
                 </InlineStack>
+              </Box>
+              <Divider />
 
-                {deliveryRules.length === 0 ? (
-                  <Box padding="400">
-                    <BlockStack align="center" inlineAlign="center" gap="200">
-                      <Text as="p" variant="bodyMd" tone="subdued">
-                        No delivery rules created yet. Create a rule to hide standard parcel shipping when freight products are in cart.
-                      </Text>
-                      <Button url="/app/delivery-rules?new=1">Create First Delivery Rule</Button>
-                    </BlockStack>
-                  </Box>
-                ) : (
-                  <DataTable
-                    columnContentTypes={["text", "text", "text", "text", "text"]}
-                    headings={["Rule Name", "Status", "Target Option", "Action", "Actions"]}
-                    rows={deliveryRows}
-                  />
-                )}
-              </BlockStack>
+              {deliveryRules.length === 0 ? (
+                <Box padding="600">
+                  <BlockStack align="center" inlineAlign="center" gap="200">
+                    <Text as="p" variant="bodyMd" tone="subdued">
+                      No delivery rules created yet. Create a rule to hide standard parcel shipping when freight products are in cart.
+                    </Text>
+                    <Button url="/app/delivery-rules?new=1">Create First Delivery Rule</Button>
+                  </BlockStack>
+                </Box>
+              ) : (
+                <IndexTable
+                  resourceName={{ singular: "delivery rule", plural: "delivery rules" }}
+                  itemCount={deliveryRules.length}
+                  selectable={false}
+                  headings={[
+                    { title: "Rule Name" },
+                    { title: "Status" },
+                    { title: "Target Delivery Options" },
+                    { title: "Action" },
+                    { title: "Actions", alignment: "end" },
+                  ]}
+                >
+                  {deliveryRules.map((rule, index) => (
+                    <IndexTable.Row id={rule.id} key={rule.id} position={index}>
+                      <IndexTable.Cell>
+                        <Text variant="bodyMd" fontWeight="bold" as="span">
+                          {rule.name}
+                        </Text>
+                      </IndexTable.Cell>
+                      <IndexTable.Cell>
+                        <Badge tone={rule.status === RuleStatus.ACTIVE ? "success" : "attention"}>
+                          {rule.status}
+                        </Badge>
+                      </IndexTable.Cell>
+                      <IndexTable.Cell>
+                        <div style={{ maxWidth: "320px" }}>
+                          <InlineStack gap="100" wrap>
+                            {rule.deliveryOptionName
+                              .split(",")
+                              .map((t: string) => t.trim())
+                              .filter(Boolean)
+                              .map((alias: string, i: number) => (
+                                <Badge key={i} tone="info">
+                                  {alias}
+                                </Badge>
+                              ))}
+                          </InlineStack>
+                        </div>
+                      </IndexTable.Cell>
+                      <IndexTable.Cell>
+                        <Badge tone={rule.actionType === ActionType.HIDE ? "critical" : "new"}>
+                          {rule.actionType}
+                        </Badge>
+                      </IndexTable.Cell>
+                      <IndexTable.Cell>
+                        <InlineStack align="end">
+                          <ButtonGroup noWrap>
+                            <Button
+                              size="slim"
+                              onClick={() => handleToggle(RuleType.DELIVERY, rule.id)}
+                              disabled={isSubmitting}
+                            >
+                              {rule.status === RuleStatus.ACTIVE ? "Disable" : "Enable"}
+                            </Button>
+                            <Button size="slim" url={`/app/delivery-rules?edit=${rule.id}`}>
+                              Edit
+                            </Button>
+                          </ButtonGroup>
+                        </InlineStack>
+                      </IndexTable.Cell>
+                    </IndexTable.Row>
+                  ))}
+                </IndexTable>
+              )}
             </Card>
           </Layout.Section>
 
