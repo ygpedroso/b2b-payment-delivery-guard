@@ -6,11 +6,6 @@ schema {
 }
 
 """
-Only allow the field to be queried when targeting one of the specified targets.
-"""
-directive @restrictTarget(only: [String!]!) on FIELD_DEFINITION
-
-"""
 Scale the Functions resource limits based on the field's length.
 """
 directive @scaleLimits(rate: Float!) on FIELD_DEFINITION
@@ -81,34 +76,6 @@ type BuyerIdentity {
    metafields](https://shopify.dev/docs/api/shop-user-custom-data).
   """
   shopUser: ShopUser
-}
-
-type BuyerJourney {
-  step: BuyerJourneyStep
-}
-
-"""
-A specific stage in the customer's purchasing journey that indicates where the customer is in the checkout
-process.
-"""
-enum BuyerJourneyStep {
-  """
-  The customer is interacting with the cart. For example, the customer is adding items to the cart
-  or removing items from the cart.
-  """
-  CART_INTERACTION
-
-  """
-  The customer is completing checkout. For example, the customer is reviewing their order before
-  finalizing the purchase.
-  """
-  CHECKOUT_COMPLETION
-
-  """
-  The customer is interacting with checkout. For example, the customer is adding their shipping
-  address or payment information.
-  """
-  CHECKOUT_INTERACTION
 }
 
 """
@@ -361,6 +328,18 @@ type CartDeliveryOption {
 }
 
 """
+The output of the Function run target.
+The object contains the operations to apply to delivery options in checkout.
+"""
+input CartDeliveryOptionsTransformRunResult {
+  """
+  The ordered list of operations to apply to the list of
+  [delivery options](https://shopify.dev/docs/apps/build/checkout/delivery-shipping/delivery-options/build-function).
+  """
+  operations: [Operation!]!
+}
+
+"""
 Information about an item in a cart that a customer intends to purchase. A cart line is an entry in the
 customer's cart that represents a single unit of a product variant. For example, if a customer adds two
 different sizes of the same t-shirt to their cart, then each size is represented as a separate cart line.
@@ -450,7 +429,8 @@ type CartLineCost {
   subtotalAmount: MoneyV2!
 
   """
-  The total cost of items in a cart.
+  The total cost of items in a cart, after any line-level discounts included in the function's input.
+  Order-level discounts aren't subtracted.
   """
   totalAmount: MoneyV2!
 }
@@ -463,28 +443,6 @@ type CartLineParentRelationship {
   The parent line in the relationship.
   """
   parent: CartLine!
-}
-
-"""
-The fetch target result. Your Function must return this data structure when generating the request.
-"""
-input CartValidationsGenerateFetchResult {
-  """
-  The attributes associated with an HTTP request.
-  """
-  request: HttpRequest
-}
-
-"""
-The output of the Function run target. The object contains the validation errors
-that display to customers and prevent them from proceeding through checkout.
-"""
-input CartValidationsGenerateRunResult {
-  """
-  An ordered list of operations to be executed for the validations associated with the
-  cart and checkout processes.
-  """
-  operations: [Operation!]!
 }
 
 """
@@ -1936,7 +1894,7 @@ enum CurrencyCode {
   """
   Netherlands Antillean Guilder.
   """
-  ANG
+  ANG @deprecated(reason: "Use `XCG` instead.")
 
   """
   Angolan Kwanza (AOA).
@@ -2694,6 +2652,11 @@ enum CurrencyCode {
   XCD
 
   """
+  Caribbean Guilder (XCG).
+  """
+  XCG
+
+  """
   West African CFA franc (XOF).
   """
   XOF
@@ -2901,7 +2864,7 @@ type DeliverableCartLine {
   ): Attribute
 
   """
-  The ID of the cart line.
+  The ID of the deliverable line.
   """
   id: ID!
 
@@ -2914,6 +2877,34 @@ type DeliverableCartLine {
   The quantity of the item that the customer intends to purchase.
   """
   quantity: Int!
+}
+
+"""
+A customization representing how delivery options will be ordered, hidden, or renamed.
+"""
+type DeliveryCustomization implements HasMetafields {
+  """
+  A [custom field](https://shopify.dev/docs/apps/build/custom-data) that stores additional information
+  about a Shopify resource, such as products, orders, and
+  [many more](https://shopify.dev/docs/api/admin-graphql/latest/enums/MetafieldOwnerType).
+  Using [metafields with Shopify Functions](https://shopify.dev/docs/apps/build/functions/input-output/metafields-for-input-queries)
+  enables you to customize the checkout experience.
+  """
+  metafield(
+    """
+    The unique identifier for the metafield within its namespace. A metafield is composed of a
+    namespace and a key, in the format `namespace.key`.
+    """
+    key: String!
+
+    """
+    A category that organizes a group of metafields. Namespaces are used to prevent naming conflicts
+    between different apps or different parts of the same app. If omitted, then the
+    [app-reserved namespace](https://shopify.dev/docs/apps/build/custom-data/ownership)
+    is used.
+    """
+    namespace: String
+  ): Metafield
 }
 
 """
@@ -2949,6 +2940,86 @@ enum DeliveryMethod {
   Shipping.
   """
   SHIPPING
+}
+
+"""
+An operation that hides a delivery option from a list that's offered to customers at checkout.
+"""
+input DeliveryOptionHideOperation {
+  """
+  The handle of the delivery option to hide.
+  """
+  deliveryOptionHandle: Handle!
+}
+
+"""
+An operation that sorts a list of delivery options that are offered to customers at checkout.
+
+If you reorder shipping delivery options, then you are
+[prohibited](https://shopify.dev/docs/apps/launch/app-requirements-checklist#prohibited-app-types).
+from automatically selecting higher-priced delivery alternatives by default. The cheapest shipping delivery option
+must always be the first option selected.
+"""
+input DeliveryOptionMoveOperation {
+  """
+  The handle of the delivery option to move.
+  """
+  deliveryOptionHandle: Handle!
+
+  """
+  The target index within the delivery group to move the delivery option to.
+  """
+  index: Int!
+}
+
+"""
+An operation that renames a delivery option that's offered to customers at checkout.
+
+The carrier name is automatically prepended to the delivery option title at checkout when using the
+`DeliveryOptionRenameOperation` object, and can't be altered or omitted through the API. For example, if the carrier name
+is **UPS** and the option is **Standard**, then you could change **UPS Standard** to **UPS Standard Shipping**,
+but you couldn't change **UPS Standard** to **Standard Shipping**.
+"""
+input DeliveryOptionRenameOperation {
+  """
+  The handle of the delivery option to rename.
+  """
+  deliveryOptionHandle: Handle!
+
+  """
+  The new name for the delivery option.
+  """
+  title: String!
+}
+
+"""
+An operation to apply to the list of [delivery options](https://shopify.dev/docs/apps/build/checkout/delivery-shipping/delivery-options/build-function).
+"""
+input DeprecatedOperation @oneOf {
+  """
+  An operation that hides a delivery option from a list that's offered to customers at checkout.
+  """
+  hide: HideOperation @deprecated(reason: "Use `deliveryOptionHide` instead.")
+
+  """
+  An operation that sorts a list of delivery options that are offered to customers at checkout.
+
+  If you reorder shipping delivery options, then you are
+  [prohibited](https://shopify.dev/docs/apps/launch/app-requirements-checklist#prohibited-app-types).
+  from automatically selecting higher-priced delivery alternatives by default. The cheapest shipping delivery option
+  must always be the first option selected.
+  """
+  move: MoveOperation @deprecated(reason: "Use `deliveryOptionMove` instead.")
+
+  """
+  An operation that renames a delivery option that's offered to customers at checkout.
+
+  The carrier name is automatically prepended to the delivery option title at checkout when using the
+  `RenameOperation` object, and can't be altered or omitted through the API. For example, if the carrier name
+  is **UPS** and the option is **Standard**, then you could change **UPS Standard** to **UPS Standard Shipping**,
+  but you couldn't change **UPS Standard** to **Standard Shipping**.
+  """
+  rename: RenameOperation @deprecated(reason: "Use `deliveryOptionRename` instead.")
 }
 
 """
@@ -3073,54 +3144,29 @@ enum DiscountApplicationTargetSelection {
 }
 
 """
-A Function error for a path.
-"""
-input FunctionError {
-  """
-  A description of the validation error. For example, "The product is out of stock" or
-  "The product isn't available for purchase in your region". The message is localized for the customer.
-  """
-  localizedMessage: String!
-
-  """
-  The [identifier](https://shopify.dev/docs/api/functions/reference/cart-checkout-validation/graphql#supported-checkout-field-targets)
-  in `shopify.extension.toml` that specifies where you're injecting code in the checkout process.
-  """
-  target: String!
-}
-
-"""
-The fetch target result. Your Function must return this data structure when generating the request.
-"""
-input FunctionFetchResult {
-  """
-  The attributes associated with an HTTP request.
-  """
-  request: HttpRequest
-}
-
-"""
-The output of the Function run target. The object contains the validation errors
-that display to customers and prevent them from proceeding through checkout. In
+The output of the Function run target.
+The object contains the operations to apply to delivery options in checkout. In
 API versions 2023-10 and beyond, this type is deprecated in favor of
 `FunctionRunResult`.
 """
 input FunctionResult {
   """
-  The validation errors that block a customer from proceeding through checkout.
+  The ordered list of operations to apply to the list of
+  [delivery options](https://shopify.dev/docs/apps/build/checkout/delivery-shipping/delivery-options/build-function).
   """
-  errors: [FunctionError!]!
+  operations: [DeprecatedOperation!]!
 }
 
 """
-The output of the Function run target. The object contains the validation errors
-that display to customers and prevent them from proceeding through checkout.
+The output of the Function run target.
+The object contains the operations to apply to delivery options in checkout.
 """
 input FunctionRunResult {
   """
-  The validation errors that block a customer from proceeding through checkout.
+  The ordered list of operations to apply to the list of
+  [delivery options](https://shopify.dev/docs/apps/build/checkout/delivery-shipping/delivery-options/build-function).
   """
-  errors: [FunctionError!]!
+  operations: [DeprecatedOperation!]!
 }
 
 """
@@ -3176,143 +3222,13 @@ type HasTagResponse {
 }
 
 """
-The attributes associated with an HTTP request.
+An operation that hides a delivery option from a list that's offered to customers at checkout.
 """
-input HttpRequest {
+input HideOperation {
   """
-  The HTTP request body as a plain string.
-  Use this field when the body isn't in JSON format.
+  The handle of the delivery option to hide.
   """
-  body: String
-
-  """
-  The HTTP headers.
-  """
-  headers: [HttpRequestHeader!]!
-
-  """
-  The HTTP request body as a JSON object.
-  Use this field when the body's in JSON format, to reduce function instruction consumption
-  and to ensure the body's formatted in logs.
-  Don't use this field together with the `body` field. If both are provided, then the `body` field
-  will take precedence.
-  If this field is specified and no `Content-Type` header is included, then the header will
-  automatically be set to `application/json`.
-  """
-  jsonBody: JSON
-
-  """
-  The HTTP method.
-  """
-  method: HttpRequestMethod!
-
-  """
-  Policy attached to the HTTP request.
-  """
-  policy: HttpRequestPolicy!
-
-  """
-  The HTTP url (eg.: https://example.com). The scheme needs to be HTTPS.
-  """
-  url: URL!
-}
-
-"""
-The attributes associated with an HTTP request header.
-"""
-input HttpRequestHeader {
-  """
-  Header name.
-  """
-  name: String!
-
-  """
-  Header value.
-  """
-  value: String!
-}
-
-"""
-The HTTP request available methods.
-"""
-enum HttpRequestMethod {
-  """
-  Http GET.
-  """
-  GET
-
-  """
-  Http POST.
-  """
-  POST
-}
-
-"""
-The attributes associated with an HTTP request policy.
-"""
-input HttpRequestPolicy {
-  """
-  Read timeout in milliseconds.
-  """
-  readTimeoutMs: Int!
-}
-
-"""
-The attributes associated with an HTTP response.
-"""
-type HttpResponse {
-  """
-  The HTTP response body as a plain string.
-  Use this field when the body is not in JSON format.
-  """
-  body: String
-
-  """
-  An HTTP header.
-  """
-  header(
-    """
-    A case-insensitive header name.
-    """
-    name: String!
-  ): HttpResponseHeader
-
-  """
-  The HTTP headers.
-  """
-  headers: [HttpResponseHeader!]! @deprecated(reason: "Use `header` instead.")
-
-  """
-  The HTTP response body parsed as JSON.
-  If the body is valid JSON, it will be parsed and returned as a JSON object.
-  If parsing fails, then raw body is returned as a string.
-  Use this field when you expect the response to be JSON, or when you're dealing
-  with mixed response types, meaning both JSON and non-JSON.
-  Using this field reduces function instruction consumption and ensures that the data is formatted in logs.
-  To prevent increasing the function target input size unnecessarily, avoid querying
-  both `body` and `jsonBody` simultaneously.
-  """
-  jsonBody: JSON
-
-  """
-  The HTTP status code.
-  """
-  status: Int!
-}
-
-"""
-The attributes associated with an HTTP response header.
-"""
-type HttpResponseHeader {
-  """
-  Header name.
-  """
-  name: String!
-
-  """
-  Header value.
-  """
-  value: String!
+  deliveryOptionHandle: Handle!
 }
 
 """
@@ -3323,23 +3239,7 @@ Example value: `"gid://shopify/Product/10079785100"`
 """
 scalar ID
 
-"""
-The `Input` object is the complete GraphQL schema that your Function can receive
-as input to validate cart and checkout. Your Function receives only the fields
-that you request in the input query. To optimize performance, we highly
-recommend that you request only the fields that your Function requires.
-"""
 type Input {
-  """
-  Information about the current step in the buyer's purchasing process. The
-  buyer journey helps you determine where the customer is in their shopping
-  experience (for example, cart interaction, checkout interaction, or completing
-  a checkout). You can use this information to apply appropriate validation
-  rules based on the customer's current context and create a more tailored and
-  performant shopping experience.
-  """
-  buyerJourney: BuyerJourney!
-
   """
   The cart where the Function is running. A cart contains the merchandise that a customer intends to purchase
   and information about the customer, such as the customer's email address and phone number.
@@ -3347,12 +3247,13 @@ type Input {
   cart: Cart!
 
   """
-  The `FunctionFetchResult` object is the result of the fetch target. This is
-  the response that Shopify returns after executing the HTTP request defined in
-  your fetch target, and that is passed as input to the run target. For more
-  information, refer to [network access for Shopify Functions](https://shopify.dev/docs/apps/build/functions/input-output/network-access).
+  The backend logic that the Function is running to define how
+  [delivery options](https://shopify.dev/apps/build/checkout/delivery-shipping/delivery-options/build-function)
+  are sorted, hidden, or renamed. It includes the
+  [metafields](https://shopify.dev/docs/apps/build/custom-data)
+  that are associated with the customization.
   """
-  fetchResult: HttpResponse @restrictTarget(only: ["purchase.validation.run", "cart.validations.generate.run"])
+  deliveryCustomization: DeliveryCustomization!
 
   """
   The regional and language settings that determine how the Function
@@ -3375,18 +3276,6 @@ type Input {
   setting and associated [metafields](https://shopify.dev/docs/apps/build/custom-data).
   """
   shop: Shop!
-
-  """
-  The configuration of the app that owns the Function. This configuration
-  controls how merchants can define validation rules for carts and checkout,
-  such as inventory checks, price validations, or custom purchase restrictions.
-  """
-  validation: Validation!
-  deliveryCustomization: DeliveryCustomization
-}
-
-type DeliveryCustomization {
-  metafield(namespace: String!, key: String!): Metafield
 }
 
 """
@@ -4229,7 +4118,8 @@ type Localization {
   language: Language!
 
   """
-  The market of the active localized experience.
+  The market that applies to the buyer's country. In cases where multiple
+  markets match, this returns the most-specific country region market.
   """
   market: Market! @deprecated(reason: "This `market` field will be removed in a future version of the API.")
 }
@@ -4610,7 +4500,8 @@ type MailingAddress {
   longitude: Float
 
   """
-  The market of the address.
+  The market that applies to the address's country. In cases where multiple
+  markets match, this returns the most-specific country region market.
   """
   market: Market @deprecated(reason: "This `market` field will be removed in a future version of the API.")
 
@@ -4835,37 +4726,37 @@ type MoneyV2 {
 }
 
 """
+An operation that sorts a list of delivery options that are offered to customers at checkout.
+
+If you reorder shipping delivery options, then you are
+[prohibited](https://shopify.dev/docs/apps/launch/app-requirements-checklist#prohibited-app-types).
+from automatically selecting higher-priced delivery alternatives by default. The cheapest shipping delivery option
+must always be the first option selected.
+"""
+input MoveOperation {
+  """
+  The handle of the delivery option to move.
+  """
+  deliveryOptionHandle: Handle!
+
+  """
+  The target index within the delivery group to move the delivery option to.
+  """
+  index: Int!
+}
+
+"""
 The root mutation for the API.
 """
 type MutationRoot {
   """
-  Handles the Function result for the cart.validations.generate.fetch target.
+  Handles the Function result for the cart.delivery-options.transform.run target.
   """
-  cartValidationsGenerateFetch(
+  cartDeliveryOptionsTransformRun(
     """
     The result of the Function.
     """
-    result: CartValidationsGenerateFetchResult!
-  ): Void!
-
-  """
-  Handles the Function result for the cart.validations.generate.run target.
-  """
-  cartValidationsGenerateRun(
-    """
-    The result of the Function.
-    """
-    result: CartValidationsGenerateRunResult!
-  ): Void!
-
-  """
-  Handles the Function result for the purchase.validation.fetch target.
-  """
-  fetch(
-    """
-    The result of the Function.
-    """
-    result: FunctionFetchResult!
+    result: CartDeliveryOptionsTransformRunResult!
   ): Void!
 
   """
@@ -4879,7 +4770,7 @@ type MutationRoot {
   ): Void! @deprecated(reason: "Use the target-specific field instead.")
 
   """
-  Handles the Function result for the purchase.validation.run target.
+  Handles the Function result for the purchase.delivery-customization.run target.
   """
   run(
     """
@@ -4890,14 +4781,33 @@ type MutationRoot {
 }
 
 """
-An operation to apply.
+An operation to apply to the list of [delivery options](https://shopify.dev/docs/apps/build/checkout/delivery-shipping/delivery-options/build-function).
 """
 input Operation @oneOf {
   """
-  An operation that adds validations to the cart and checkout. For example, you might add a validation
-  that, at checkout, confirms a customer's age meets the legal requirement to purchase a product in their cart.
+  An operation that hides a delivery option from a list that's offered to customers at checkout.
   """
-  validationAdd: ValidationAddOperation
+  deliveryOptionHide: DeliveryOptionHideOperation
+
+  """
+  An operation that sorts a list of delivery options that are offered to customers at checkout.
+
+  If you reorder shipping delivery options, then you are
+  [prohibited](https://shopify.dev/docs/apps/launch/app-requirements-checklist#prohibited-app-types).
+  from automatically selecting higher-priced delivery alternatives by default. The cheapest shipping delivery option
+  must always be the first option selected.
+  """
+  deliveryOptionMove: DeliveryOptionMoveOperation
+
+  """
+  An operation that renames a delivery option that's offered to customers at checkout.
+
+  The carrier name is automatically prepended to the delivery option title at checkout when using the
+  `DeliveryOptionRenameOperation` object, and can't be altered or omitted through the API. For example, if the carrier name
+  is **UPS** and the option is **Standard**, then you could change **UPS Standard** to **UPS Standard Shipping**,
+  but you couldn't change **UPS Standard** to **Standard Shipping**.
+  """
+  deliveryOptionRename: DeliveryOptionRenameOperation
 }
 
 """
@@ -5168,6 +5078,26 @@ type PurchasingCompany {
 }
 
 """
+An operation that renames a delivery option that's offered to customers at checkout.
+
+The carrier name is automatically prepended to the delivery option title at checkout when using the
+`RenameOperation` object, and can't be altered or omitted through the API. For example, if the carrier name
+is **UPS** and the option is **Standard**, then you could change **UPS Standard** to **UPS Standard Shipping**,
+but you couldn't change **UPS Standard** to **Standard Shipping**.
+"""
+input RenameOperation {
+  """
+  The handle of the delivery option to rename.
+  """
+  deliveryOptionHandle: Handle!
+
+  """
+  The new name for the delivery option.
+  """
+  title: String!
+}
+
+"""
 Represents how products and variants can be sold and purchased.
 """
 type SellingPlan implements HasMetafields {
@@ -5343,73 +5273,6 @@ includes the time but not the date or timezone which is determined from context.
 For example, "05:43:21".
 """
 scalar TimeWithoutTimezone
-
-"""
-Represents an [RFC 3986](https://datatracker.ietf.org/doc/html/rfc3986) and
-[RFC 3987](https://datatracker.ietf.org/doc/html/rfc3987)-compliant URI string.
-
-For example, `"https://example.myshopify.com"` is a valid URL. It includes a scheme (`https`) and a host
-(`example.myshopify.com`).
-"""
-scalar URL
-
-"""
-A customization that validates a cart and/or checkout.
-"""
-type Validation implements HasMetafields {
-  """
-  A [custom field](https://shopify.dev/docs/apps/build/custom-data) that stores additional information
-  about a Shopify resource, such as products, orders, and
-  [many more](https://shopify.dev/docs/api/admin-graphql/latest/enums/MetafieldOwnerType).
-  Using [metafields with Shopify Functions](https://shopify.dev/docs/apps/build/functions/input-output/metafields-for-input-queries)
-  enables you to customize the checkout experience.
-  """
-  metafield(
-    """
-    The unique identifier for the metafield within its namespace. A metafield is composed of a
-    namespace and a key, in the format `namespace.key`.
-    """
-    key: String!
-
-    """
-    A category that organizes a group of metafields. Namespaces are used to prevent naming conflicts
-    between different apps or different parts of the same app. If omitted, then the
-    [app-reserved namespace](https://shopify.dev/docs/apps/build/custom-data/ownership)
-    is used.
-    """
-    namespace: String
-  ): Metafield
-}
-
-"""
-An operation that adds validations to the cart and checkout. For example, you might add a validation
-that, at checkout, confirms a customer's age meets the legal requirement to purchase a product in their cart.
-"""
-input ValidationAddOperation {
-  """
-  The validation errors that block a customer from proceeding through checkout.
-  The errors are grouped by
-  [target](https://shopify.dev/docs/api/functions/reference/cart-checkout-validation/graphql#supported-checkout-field-targets).
-  """
-  errors: [ValidationError!]!
-}
-
-"""
-A Function error for a path.
-"""
-input ValidationError {
-  """
-  A description of the validation error. For example, "The product is out of stock" or
-  "The product isn't available for purchase in your region".
-  """
-  message: String!
-
-  """
-  The [identifier](https://shopify.dev/docs/api/functions/reference/cart-checkout-validation/graphql#supported-checkout-field-targets)
-  in `shopify.extension.toml` that specifies where you're injecting code in the checkout process.
-  """
-  target: String!
-}
 
 """
 A void type that can be used to return a null value from a mutation.

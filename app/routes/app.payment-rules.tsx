@@ -399,6 +399,7 @@ export default function PaymentRules() {
     <Page
       title="Payment Customization Rules"
       subtitle="Conditionally hide, restrict, or reorder payment methods at checkout"
+      fullWidth
       primaryAction={
         !showForm
           ? {
@@ -456,7 +457,7 @@ export default function PaymentRules() {
                     headings={[
                       { title: "Rule Name" },
                       { title: "Status" },
-                      { title: "Target Payment Methods" },
+                      { title: "Target Methods" },
                       { title: "Conditions" },
                       { title: "Action" },
                       { title: "Actions", alignment: "end" },
@@ -475,7 +476,7 @@ export default function PaymentRules() {
                           </Badge>
                         </IndexTable.Cell>
                         <IndexTable.Cell>
-                          <div style={{ maxWidth: "280px" }}>
+                          <div style={{ maxWidth: "220px" }}>
                             <InlineStack gap="100" wrap>
                               {rule.paymentMethodName
                                 .split(",")
@@ -490,7 +491,7 @@ export default function PaymentRules() {
                           </div>
                         </IndexTable.Cell>
                         <IndexTable.Cell>
-                          <div style={{ maxWidth: "260px" }}>
+                          <div style={{ maxWidth: "220px" }}>
                             <InlineStack gap="100" wrap>
                               {rule.minSubtotal && (
                                 <Badge size="small">Subtotal ≥ ${rule.minSubtotal}</Badge>

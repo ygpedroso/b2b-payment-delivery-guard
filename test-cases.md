@@ -172,42 +172,42 @@ In **Settings &rarr; Shipping and delivery**:
 - **Expected Result:**
   - [ ] **Express 2-Day Air** is hidden from the delivery options list.
   - [ ] **Contracted B2B Freight (LTL)** is available.
-- **Status:** [ ] PASS / [ ] FAIL
+- **Status:** [X] PASS / [ ] FAIL
 
 ---
 
 ### Test Case 7: Postal Code / Zip Prefix Delivery Restriction
-- **Objective:** Block standard delivery options for remote zones, offshore islands, or PO Boxes.
+- **Objective:** Block standard delivery options for specific postal code regions or zones using prefix matching.
 - **App Rule Configuration:**
-  - Name: `Hide Standard for Remote Alaska Zips`
+  - Name: `Hide Standard for Rochester NY (146xx)`
   - Postal Code Match Type: `Prefix Match`
-  - Postal Code / Zip Filter: `995, 996, 997, 998, 999`
+  - Postal Code / Zip Filter: `146`
   - Target Delivery Option Name Match: `Standard`
   - Action: `Hide Option`
 - **Execution Steps:**
-  1. In checkout, enter destination address: Anchorage, AK with ZIP `99501`.
+  1. In checkout address suggestions, select: `1 Rodeo Dr, Rochester NY 14612, United States` (or enter city: `Rochester`, State: `NY`, ZIP: `14612`).
   2. Continue to **Shipping method**.
 - **Expected Result:**
   - [ ] **Standard Ground Shipping** is hidden.
-  - [ ] Only authorized remote carriers or express services appear.
-- **Status:** [ ] PASS / [ ] FAIL
+  - [ ] Other delivery options (e.g. **Express 2-Day Air**, **Contracted B2B Freight**) remain available.
+- **Status:** [X] PASS / [ ] FAIL
 
 ---
 
 ### Test Case 8: PO Box Regex Filter
-- **Objective:** Restrict freight delivery to physical commercial loading docks (block PO Boxes).
+- **Objective:** Restrict freight delivery to physical commercial loading docks (block PO Boxes in street address lines or postal codes).
 - **App Rule Configuration:**
   - Name: `No Freight to PO Boxes`
   - Postal Code Match Type: `Regex Pattern`
-  - Postal Code / Zip Filter: `^P\.?O\.?\s?BOX`
+  - Postal Code / Zip Filter: `P\.?O\.?\s?BOX` *(Evaluated case-insensitively across street address lines `address1`, `address2`, and `zip`)*
   - Target Delivery Option Name Match: `Freight`
   - Action: `Hide Option`
 - **Execution Steps:**
-  1. In checkout, enter address line or zip containing `PO BOX 405`.
+  1. In checkout, enter address with `Po Box` or `PO BOX 405` in the address line or zip.
   2. Continue to **Shipping method**.
 - **Expected Result:**
   - [ ] **Contracted B2B Freight (LTL)** is hidden.
-- **Status:** [ ] PASS / [ ] FAIL
+- **Status:** [X] PASS / [ ] FAIL
 
 ---
 

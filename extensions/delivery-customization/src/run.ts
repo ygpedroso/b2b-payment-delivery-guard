@@ -69,6 +69,8 @@ export interface RunInput {
     }>;
     deliveryGroups?: Array<{
       deliveryAddress?: {
+        address1?: string | null;
+        address2?: string | null;
         countryCode?: string | null;
         provinceCode?: string | null;
         zip?: string | null;
@@ -91,12 +93,16 @@ export interface RunInput {
 }
 
 export interface Operation {
-  deliveryOptionHide?: {
+  hide?: {
     deliveryOptionHandle: string;
   };
-  deliveryOptionMove?: {
+  move?: {
     deliveryOptionHandle: string;
     index: number;
+  };
+  rename?: {
+    deliveryOptionHandle: string;
+    title: string;
   };
 }
 
@@ -110,7 +116,12 @@ export function run(input: RunInput): FunctionRunResult {
   const config: Configuration = input?.deliveryCustomization?.metafield?.jsonValue ?? {};
   const rules = config.rules;
 
+  console.error(
+    `[B2B Delivery Guard] Executing delivery function: metafieldPresent=${!!input?.deliveryCustomization?.metafield?.jsonValue}, rulesCount=${rules?.length ?? 0}`
+  );
+
   if (!rules || !Array.isArray(rules) || rules.length === 0) {
+    console.error("[B2B Delivery Guard] No active delivery rules found in configuration.");
     return NO_CHANGES;
   }
 
@@ -134,6 +145,8 @@ export function run(input: RunInput): FunctionRunResult {
 
   const deliveryGroup = input?.cart?.deliveryGroups?.[0];
   const address = deliveryGroup?.deliveryAddress;
+  const address1 = (address?.address1 ?? "").trim();
+  const address2 = (address?.address2 ?? "").trim();
   const countryCode = address?.countryCode?.toUpperCase() ?? "";
   const provinceCode = address?.provinceCode?.toUpperCase() ?? "";
   const zip = (address?.zip ?? "").trim().toUpperCase();
@@ -142,14 +155,26 @@ export function run(input: RunInput): FunctionRunResult {
   const operations: Operation[] = [];
   const processedHandles = new Set<string>();
 
+  console.error(
+    `[B2B Delivery Guard] Cart context: totalAmount=${totalAmount}, totalWeight=${totalWeight}, cartProductTags=${JSON.stringify(
+      Array.from(cartProductTags)
+    )}, address1='${address1}', address2='${address2}', country=${countryCode}, zip=${zip}, options=${JSON.stringify(
+      deliveryOptions.map((o) => ({ handle: o.handle, title: o.title }))
+    )}`
+  );
+
   for (const rule of rules) {
     if (rule.status !== RuleStatus.ACTIVE) {
+      console.error(`[B2B Delivery Guard] Rule '${rule.name}' skipped: status is ${rule.status}`);
       continue;
     }
 
     // Condition 1: Minimum Total Amount
     if (typeof rule.minTotalAmount === "number" && !isNaN(rule.minTotalAmount)) {
       if (totalAmount < rule.minTotalAmount) {
+        console.error(
+          `[B2B Delivery Guard] Rule '${rule.name}' skipped: totalAmount (${totalAmount}) < minTotalAmount (${rule.minTotalAmount})`
+        );
         continue;
       }
     }
@@ -157,6 +182,9 @@ export function run(input: RunInput): FunctionRunResult {
     // Condition 2: Maximum Total Amount
     if (typeof rule.maxTotalAmount === "number" && !isNaN(rule.maxTotalAmount)) {
       if (totalAmount > rule.maxTotalAmount) {
+        console.error(
+          `[B2B Delivery Guard] Rule '${rule.name}' skipped: totalAmount (${totalAmount}) > maxTotalAmount (${rule.maxTotalAmount})`
+        );
         continue;
       }
     }
@@ -164,6 +192,9 @@ export function run(input: RunInput): FunctionRunResult {
     // Condition 3: Minimum Weight
     if (typeof rule.minTotalWeight === "number" && !isNaN(rule.minTotalWeight)) {
       if (totalWeight < rule.minTotalWeight) {
+        console.error(
+          `[B2B Delivery Guard] Rule '${rule.name}' skipped: totalWeight (${totalWeight}) < minTotalWeight (${rule.minTotalWeight})`
+        );
         continue;
       }
     }
@@ -171,6 +202,9 @@ export function run(input: RunInput): FunctionRunResult {
     // Condition 4: Maximum Weight
     if (typeof rule.maxTotalWeight === "number" && !isNaN(rule.maxTotalWeight)) {
       if (totalWeight > rule.maxTotalWeight) {
+        console.error(
+          `[B2B Delivery Guard] Rule '${rule.name}' skipped: totalWeight (${totalWeight}) > maxTotalWeight (${rule.maxTotalWeight})`
+        );
         continue;
       }
     }
@@ -179,6 +213,9 @@ export function run(input: RunInput): FunctionRunResult {
     if (rule.countryCodes && rule.countryCodes.length > 0) {
       const normalizedCountries = rule.countryCodes.map((c) => c.trim().toUpperCase()).filter(Boolean);
       if (!countryCode || !normalizedCountries.includes(countryCode)) {
+        console.error(
+          `[B2B Delivery Guard] Rule '${rule.name}' skipped: country '${countryCode}' not in [${normalizedCountries.join(", ")}]`
+        );
         continue;
       }
     }
@@ -187,37 +224,51 @@ export function run(input: RunInput): FunctionRunResult {
     if (rule.provinceCodes && rule.provinceCodes.length > 0) {
       const normalizedProvinces = rule.provinceCodes.map((p) => p.trim().toUpperCase()).filter(Boolean);
       if (!provinceCode || !normalizedProvinces.includes(provinceCode)) {
+        console.error(
+          `[B2B Delivery Guard] Rule '${rule.name}' skipped: province '${provinceCode}' not in [${normalizedProvinces.join(", ")}]`
+        );
         continue;
       }
     }
 
-    // Condition 7: Postal / Zip Code matching
+    // Condition 7: Postal / Zip Code matching (also checks street address lines for REGEX patterns like PO Boxes)
     if (rule.postalCodes && rule.postalCodes.length > 0) {
       const type = rule.postalCodeType || PostalCodeType.PREFIX;
-      let zipMatches = false;
-
-      if (!zip) {
-        continue;
-      }
+      let addressMatches = false;
 
       if (type === PostalCodeType.REGEX) {
         try {
           const patternString = rule.postalCodes.join("|");
           const regex = new RegExp(patternString, "i");
-          zipMatches = regex.test(zip);
+          // Check zip, address1, address2, or full address string
+          addressMatches =
+            (!!zip && regex.test(zip)) ||
+            (!!address1 && regex.test(address1)) ||
+            (!!address2 && regex.test(address2));
         } catch {
-          zipMatches = false;
+          addressMatches = false;
         }
       } else if (type === PostalCodeType.LIST) {
+        if (!zip) {
+          console.error(`[B2B Delivery Guard] Rule '${rule.name}' skipped: no zip code in address`);
+          continue;
+        }
         const list = rule.postalCodes.map((z) => z.trim().toUpperCase());
-        zipMatches = list.includes(zip);
+        addressMatches = list.includes(zip);
       } else {
         // PREFIX
+        if (!zip) {
+          console.error(`[B2B Delivery Guard] Rule '${rule.name}' skipped: no zip code in address`);
+          continue;
+        }
         const prefixes = rule.postalCodes.map((z) => z.trim().toUpperCase());
-        zipMatches = prefixes.some((prefix) => zip.startsWith(prefix));
+        addressMatches = prefixes.some((prefix) => zip.startsWith(prefix));
       }
 
-      if (!zipMatches) {
+      if (!addressMatches) {
+        console.error(
+          `[B2B Delivery Guard] Rule '${rule.name}' skipped: address/zip '${[address1, address2, zip].filter(Boolean).join(", ")}' does not match ${type} criteria [${rule.postalCodes.join(", ")}]`
+        );
         continue;
       }
     }
@@ -227,6 +278,9 @@ export function run(input: RunInput): FunctionRunResult {
       const normalizedTags = rule.productTags.map((t) => t.trim().toLowerCase()).filter(Boolean);
       const hasMatchingTag = normalizedTags.some((t) => cartProductTags.has(t));
       if (!hasMatchingTag) {
+        console.error(
+          `[B2B Delivery Guard] Rule '${rule.name}' skipped: cart missing product tags. Required: [${normalizedTags.join(", ")}], Cart: [${Array.from(cartProductTags).join(", ")}]`
+        );
         continue;
       }
     }
@@ -244,6 +298,12 @@ export function run(input: RunInput): FunctionRunResult {
       return targets.some((target) => title.includes(target) || handle.includes(target));
     });
 
+    console.error(
+      `[B2B Delivery Guard] Rule '${rule.name}' matched all conditions! Targets: [${targets.join(", ")}], Matching options: ${JSON.stringify(
+        matchingOptions.map((o) => ({ handle: o.handle, title: o.title }))
+      )}`
+    );
+
     for (const option of matchingOptions) {
       if (processedHandles.has(option.handle)) {
         continue;
@@ -251,7 +311,7 @@ export function run(input: RunInput): FunctionRunResult {
 
       if (rule.actionType === ActionType.MOVE_TO_TOP) {
         operations.push({
-          deliveryOptionMove: {
+          move: {
             deliveryOptionHandle: option.handle,
             index: 0,
           },
@@ -259,7 +319,7 @@ export function run(input: RunInput): FunctionRunResult {
         processedHandles.add(option.handle);
       } else if (rule.actionType === ActionType.MOVE_TO_BOTTOM) {
         operations.push({
-          deliveryOptionMove: {
+          move: {
             deliveryOptionHandle: option.handle,
             index: 999,
           },
@@ -268,7 +328,7 @@ export function run(input: RunInput): FunctionRunResult {
       } else {
         // HIDE
         operations.push({
-          deliveryOptionHide: {
+          hide: {
             deliveryOptionHandle: option.handle,
           },
         });
@@ -276,6 +336,10 @@ export function run(input: RunInput): FunctionRunResult {
       }
     }
   }
+
+  console.error(
+    `[B2B Delivery Guard] Finished delivery execution. Returning ${operations.length} operations: ${JSON.stringify(operations)}`
+  );
 
   return { operations };
 }

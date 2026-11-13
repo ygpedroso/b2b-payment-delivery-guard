@@ -85,7 +85,7 @@ describe("Delivery Customization Function", () => {
     const result = run(input);
     expect(result.operations).toHaveLength(1);
     expect(result.operations[0]).toEqual({
-      deliveryOptionHide: {
+      hide: {
         deliveryOptionHandle: "shipping-express-air",
       },
     });
@@ -116,7 +116,7 @@ describe("Delivery Customization Function", () => {
     const result = run(input);
     expect(result.operations).toHaveLength(1);
     expect(result.operations[0]).toEqual({
-      deliveryOptionHide: {
+      hide: {
         deliveryOptionHandle: "shipping-standard-ground",
       },
     });
@@ -160,7 +160,52 @@ describe("Delivery Customization Function", () => {
     const result = run(inputWithPOBox);
     expect(result.operations).toHaveLength(1);
     expect(result.operations[0]).toEqual({
-      deliveryOptionHide: {
+      hide: {
+        deliveryOptionHandle: "carrier-b2b-freight-ltl",
+      },
+    });
+  });
+
+  it("matches PO Box when entered in address1 with mixed case (e.g. Po Box)", () => {
+    const inputWithPOBoxInAddress1: RunInput = {
+      ...baseInput,
+      cart: {
+        ...baseInput.cart,
+        deliveryGroups: [
+          {
+            ...baseInput.cart.deliveryGroups![0],
+            deliveryAddress: {
+              address1: "Po Box 405",
+              countryCode: "CA",
+              provinceCode: "QC",
+              zip: "J9P 7C5",
+            },
+          },
+        ],
+      },
+      deliveryCustomization: {
+        metafield: {
+          jsonValue: {
+            rules: [
+              {
+                id: "rule-po-box",
+                name: "Hide B2B freight for PO Boxes",
+                status: "ACTIVE",
+                postalCodes: ["P\\.?O\\.?\\s?BOX"],
+                postalCodeType: "REGEX",
+                deliveryOptionName: "Freight",
+                actionType: "HIDE",
+              },
+            ],
+          },
+        },
+      },
+    };
+
+    const result = run(inputWithPOBoxInAddress1);
+    expect(result.operations).toHaveLength(1);
+    expect(result.operations[0]).toEqual({
+      hide: {
         deliveryOptionHandle: "carrier-b2b-freight-ltl",
       },
     });
@@ -189,7 +234,7 @@ describe("Delivery Customization Function", () => {
     const result = run(input);
     expect(result.operations).toHaveLength(1);
     expect(result.operations[0]).toEqual({
-      deliveryOptionMove: {
+      move: {
         deliveryOptionHandle: "carrier-b2b-freight-ltl",
         index: 0,
       },
@@ -270,8 +315,8 @@ describe("Delivery Customization Function", () => {
     const result = run(input);
     expect(result.operations).toHaveLength(2);
     expect(result.operations).toEqual([
-      { deliveryOptionHide: { deliveryOptionHandle: "shipping-standard-ground" } },
-      { deliveryOptionHide: { deliveryOptionHandle: "shipping-express-air" } },
+      { hide: { deliveryOptionHandle: "shipping-standard-ground" } },
+      { hide: { deliveryOptionHandle: "shipping-express-air" } },
     ]);
   });
 });

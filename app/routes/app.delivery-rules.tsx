@@ -421,6 +421,7 @@ export default function DeliveryRules() {
     <Page
       title="Delivery & Shipping Rules"
       subtitle="Conditionally hide, prioritize, or reorder delivery options at checkout"
+      fullWidth
       primaryAction={
         !showForm
           ? {
@@ -478,7 +479,7 @@ export default function DeliveryRules() {
                     headings={[
                       { title: "Rule Name" },
                       { title: "Status" },
-                      { title: "Target Delivery Options" },
+                      { title: "Target Options" },
                       { title: "Conditions" },
                       { title: "Action" },
                       { title: "Actions", alignment: "end" },
@@ -497,7 +498,7 @@ export default function DeliveryRules() {
                           </Badge>
                         </IndexTable.Cell>
                         <IndexTable.Cell>
-                          <div style={{ maxWidth: "280px" }}>
+                          <div style={{ maxWidth: "220px" }}>
                             <InlineStack gap="100" wrap>
                               {rule.deliveryOptionName
                                 .split(",")
@@ -512,7 +513,7 @@ export default function DeliveryRules() {
                           </div>
                         </IndexTable.Cell>
                         <IndexTable.Cell>
-                          <div style={{ maxWidth: "260px" }}>
+                          <div style={{ maxWidth: "220px" }}>
                             <InlineStack gap="100" wrap>
                               {rule.productTags && (
                                 <Badge size="small">Product Tags: [{rule.productTags}]</Badge>

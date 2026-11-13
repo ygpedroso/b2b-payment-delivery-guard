@@ -31,6 +31,8 @@ query RunInput {
     }
     deliveryGroups {
       deliveryAddress {
+        address1
+        address2
         countryCode
         provinceCode
         zip
