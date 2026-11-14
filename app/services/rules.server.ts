@@ -133,7 +133,63 @@ export async function syncPaymentRules(admin: AdminApiContext, shop: string) {
       });
     }
 
-    if (!setting.paymentCustomizationId) {
+    let shouldCreatePayment = !setting.paymentCustomizationId;
+
+    if (setting.paymentCustomizationId) {
+      // Try to update existing customization
+      const updateResponse = await admin.graphql(
+        `#graphql
+          mutation PaymentCustomizationUpdate($id: ID!, $paymentCustomization: PaymentCustomizationInput!) {
+            paymentCustomizationUpdate(id: $id, paymentCustomization: $paymentCustomization) {
+              paymentCustomization {
+                id
+                enabled
+              }
+              userErrors {
+                field
+                message
+              }
+            }
+          }
+        `,
+        {
+          variables: {
+            id: setting.paymentCustomizationId,
+            paymentCustomization: {
+              enabled: serializedRules.length > 0,
+              metafields: [
+                {
+                  namespace: "$app:payment_rules",
+                  key: "configuration",
+                  type: "json",
+                  value: JSON.stringify(configPayload),
+                },
+              ],
+            },
+          },
+        }
+      );
+
+      const updateData = await updateResponse.json();
+      const userErrors = updateData?.data?.paymentCustomizationUpdate?.userErrors ?? [];
+      const updatedId = updateData?.data?.paymentCustomizationUpdate?.paymentCustomization?.id;
+
+      if (!updatedId || userErrors.length > 0) {
+        console.warn(
+          "[B2B Payment Guard] PaymentCustomizationUpdate failed (customization likely removed on uninstall). Will re-create.",
+          userErrors
+        );
+        shouldCreatePayment = true;
+        await db.customizationSetting.update({
+          where: { shop },
+          data: { paymentCustomizationId: null },
+        });
+      } else {
+        console.log("[B2B Payment Guard] PaymentCustomization updated successfully:", updatedId);
+      }
+    }
+
+    if (shouldCreatePayment) {
       const createResponse = await admin.graphql(
         `#graphql
           mutation PaymentCustomizationCreate($paymentCustomization: PaymentCustomizationInput!) {
@@ -170,47 +226,18 @@ export async function syncPaymentRules(admin: AdminApiContext, shop: string) {
       );
 
       const createData = await createResponse.json();
+      const userErrors = createData?.data?.paymentCustomizationCreate?.userErrors ?? [];
       const newId = createData?.data?.paymentCustomizationCreate?.paymentCustomization?.id;
+
       if (newId) {
+        console.log("[B2B Payment Guard] PaymentCustomization created successfully:", newId);
         await db.customizationSetting.update({
           where: { shop },
           data: { paymentCustomizationId: newId },
         });
+      } else {
+        console.error("[B2B Payment Guard] PaymentCustomizationCreate failed with userErrors:", userErrors);
       }
-    } else {
-      // Update existing customization metafield
-      await admin.graphql(
-        `#graphql
-          mutation PaymentCustomizationUpdate($id: ID!, $paymentCustomization: PaymentCustomizationInput!) {
-            paymentCustomizationUpdate(id: $id, paymentCustomization: $paymentCustomization) {
-              paymentCustomization {
-                id
-                enabled
-              }
-              userErrors {
-                field
-                message
-              }
-            }
-          }
-        `,
-        {
-          variables: {
-            id: setting.paymentCustomizationId,
-            paymentCustomization: {
-              enabled: serializedRules.length > 0,
-              metafields: [
-                {
-                  namespace: "$app:payment_rules",
-                  key: "configuration",
-                  type: "json",
-                  value: JSON.stringify(configPayload),
-                },
-              ],
-            },
-          },
-        }
-      );
     }
   } catch (error) {
     console.error("Failed to sync payment rules with Shopify:", error);
@@ -308,7 +335,63 @@ export async function syncDeliveryRules(admin: AdminApiContext, shop: string) {
       });
     }
 
-    if (!setting.deliveryCustomizationId) {
+    let shouldCreateDelivery = !setting.deliveryCustomizationId;
+
+    if (setting.deliveryCustomizationId) {
+      // Try to update existing customization
+      const updateResponse = await admin.graphql(
+        `#graphql
+          mutation DeliveryCustomizationUpdate($id: ID!, $deliveryCustomization: DeliveryCustomizationInput!) {
+            deliveryCustomizationUpdate(id: $id, deliveryCustomization: $deliveryCustomization) {
+              deliveryCustomization {
+                id
+                enabled
+              }
+              userErrors {
+                field
+                message
+              }
+            }
+          }
+        `,
+        {
+          variables: {
+            id: setting.deliveryCustomizationId,
+            deliveryCustomization: {
+              enabled: serializedRules.length > 0,
+              metafields: [
+                {
+                  namespace: "$app:delivery_rules",
+                  key: "configuration",
+                  type: "json",
+                  value: JSON.stringify(configPayload),
+                },
+              ],
+            },
+          },
+        }
+      );
+
+      const updateData = await updateResponse.json();
+      const userErrors = updateData?.data?.deliveryCustomizationUpdate?.userErrors ?? [];
+      const updatedId = updateData?.data?.deliveryCustomizationUpdate?.deliveryCustomization?.id;
+
+      if (!updatedId || userErrors.length > 0) {
+        console.warn(
+          "[B2B Delivery Guard] DeliveryCustomizationUpdate failed (customization likely removed on uninstall). Will re-create.",
+          userErrors
+        );
+        shouldCreateDelivery = true;
+        await db.customizationSetting.update({
+          where: { shop },
+          data: { deliveryCustomizationId: null },
+        });
+      } else {
+        console.log("[B2B Delivery Guard] DeliveryCustomization updated successfully:", updatedId);
+      }
+    }
+
+    if (shouldCreateDelivery) {
       const createResponse = await admin.graphql(
         `#graphql
           mutation DeliveryCustomizationCreate($deliveryCustomization: DeliveryCustomizationInput!) {
@@ -345,47 +428,18 @@ export async function syncDeliveryRules(admin: AdminApiContext, shop: string) {
       );
 
       const createData = await createResponse.json();
+      const userErrors = createData?.data?.deliveryCustomizationCreate?.userErrors ?? [];
       const newId = createData?.data?.deliveryCustomizationCreate?.deliveryCustomization?.id;
+
       if (newId) {
+        console.log("[B2B Delivery Guard] DeliveryCustomization created successfully:", newId);
         await db.customizationSetting.update({
           where: { shop },
           data: { deliveryCustomizationId: newId },
         });
+      } else {
+        console.error("[B2B Delivery Guard] DeliveryCustomizationCreate failed with userErrors:", userErrors);
       }
-    } else {
-      // Update existing customization metafield
-      await admin.graphql(
-        `#graphql
-          mutation DeliveryCustomizationUpdate($id: ID!, $deliveryCustomization: DeliveryCustomizationInput!) {
-            deliveryCustomizationUpdate(id: $id, deliveryCustomization: $deliveryCustomization) {
-              deliveryCustomization {
-                id
-                enabled
-              }
-              userErrors {
-                field
-                message
-              }
-            }
-          }
-        `,
-        {
-          variables: {
-            id: setting.deliveryCustomizationId,
-            deliveryCustomization: {
-              enabled: serializedRules.length > 0,
-              metafields: [
-                {
-                  namespace: "$app:delivery_rules",
-                  key: "configuration",
-                  type: "json",
-                  value: JSON.stringify(configPayload),
-                },
-              ],
-            },
-          },
-        }
-      );
     }
   } catch (error) {
     console.error("Failed to sync delivery rules with Shopify:", error);

@@ -56,13 +56,25 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const activePaymentCount = paymentRules.filter((r) => r.status === RuleStatus.ACTIVE).length;
   const activeDeliveryCount = deliveryRules.filter((r) => r.status === RuleStatus.ACTIVE).length;
 
+  // Auto-sync / self-heal on dashboard load to ensure customizations are registered in Shopify checkout
+  if (activePaymentCount > 0 || !setting?.paymentCustomizationId) {
+    await syncPaymentRules(admin, shop);
+  }
+  if (activeDeliveryCount > 0 || !setting?.deliveryCustomizationId) {
+    await syncDeliveryRules(admin, shop);
+  }
+
+  const updatedSetting = await db.customizationSetting.findUnique({
+    where: { shop },
+  });
+
   return json({
     shop,
     paymentRules,
     deliveryRules,
     activePaymentCount,
     activeDeliveryCount,
-    setting,
+    setting: updatedSetting,
   });
 };
 
